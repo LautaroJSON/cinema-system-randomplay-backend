@@ -1,23 +1,20 @@
 <!--
 Sync Impact Report
 ==================
-Version change: (plantilla sin ratificar) → 1.0.0
-Rationale: Ratificación inicial. Primera versión concreta de la constitución del proyecto;
-           se pasa de la plantilla con placeholders a un documento con 8 principios definidos.
+Version change: 1.0.0 → 1.0.1
+Rationale: PATCH — aclaración de nomenclatura, no cambio de regla de fondo. Los agregados del
+           dominio se nombran en español (decisión tomada durante el diseño de la primera
+           feature, Catálogo de Películas) y la constitución todavía los nombraba en inglés,
+           generando una inconsistencia real con spec.md/plan.md/tasks.md ya generados.
 
 Modified principles:
-  - [PRINCIPLE_1_NAME] → I. Arquitectura Hexagonal — Regla de Dependencia hacia Adentro
-  - [PRINCIPLE_2_NAME] → II. DDD Ligero — Invariantes en el Dominio
-  - [PRINCIPLE_3_NAME] → III. Bordes Explícitos con DTOs
-  - [PRINCIPLE_4_NAME] → IV. Inversión de Dependencias por Interfaces
-  - [PRINCIPLE_5_NAME] → V. Testing como Ciudadano de Primera Clase (NO NEGOCIABLE)
+  - II. DDD Ligero — Invariantes en el Dominio: lista de agregados actualizada de
+    `Movie`/`Showtime`/`Screen`/`Reservation` a `Pelicula`/`Sucursal`/`Sala`/`Funcion`/`Reserva`
+    (se agrega `Sucursal`, que no estaba nombrada); Value Objects de ejemplo actualizados de
+    `SeatPosition`/`Money` a `Asiento`/`Dinero`; se agrega una frase explícita de convención de
+    nomenclatura en español para los tipos del dominio.
 
-Added sections:
-  - VI. Consistencia de Datos vía Outbox + Eventos (principio nuevo)
-  - VII. Autenticación y Autorización Explícitas (principio nuevo)
-  - VIII. Calidad de Código (principio nuevo)
-  - Restricciones de Plataforma y Tecnología (Sección 2)
-  - Flujo de Desarrollo y Puertas de Calidad (Sección 3)
+Added sections: ninguna
 
 Removed sections: ninguna
 
@@ -26,6 +23,8 @@ Templates / archivos dependientes revisados:
   ✅ .specify/templates/spec-template.md — sin referencias directas a principios
   ✅ .specify/templates/tasks-template.md — sin referencias directas a principios
   ⚠ .claude/ (comandos speckit) — leen esta constitución en runtime; no requieren cambios
+  ℹ specs/001-catalogo-peliculas/ (spec.md, plan.md, tasks.md) — ya usaban `Pelicula` en
+    español; esta enmienda los pone en consistencia con la constitución, no al revés.
 
 Follow-up TODOs: ninguno
 -->
@@ -59,8 +58,8 @@ testear el dominio sin arranque de framework y razonar sobre el sistema por capa
 
 ### II. DDD Ligero — Invariantes en el Dominio
 
-Los agregados (`Movie`, `Showtime`, `Screen`, `Reservation`) encapsulan y protegen sus propias
-invariantes.
+Los agregados (`Pelicula`, `Sucursal`, `Sala`, `Funcion`, `Reserva`) encapsulan y protegen sus
+propias invariantes.
 
 - Reglas como "un asiento no puede reservarse dos veces para una función" o "una reserva expira
   a los N minutos si no se confirma el pago" **DEBEN** vivir dentro del agregado o en un domain
@@ -69,8 +68,11 @@ invariantes.
   mutadores rechazan transiciones ilegales lanzando excepciones de dominio o devolviendo
   resultados explícitos de error.
 - Se **DEBEN** usar Value Objects donde aporten claridad y seguridad de tipos, como mínimo
-  `SeatPosition` y `Money`. Los Value Objects son inmutables y validan sus argumentos.
+  `Asiento` y `Dinero`. Los Value Objects son inmutables y validan sus argumentos.
 - El ORM **PUEDE** mapear estos tipos, pero la persistencia no define las reglas.
+- Los tipos del dominio (agregados, entidades y Value Objects) **DEBEN** nombrarse en español
+  (ej. `Pelicula`, `Reserva`, `Asiento`), reflejando el lenguaje ubicuo del negocio en su idioma
+  original.
 
 **Rationale**: si las invariantes viven en un solo lugar y no se pueden eludir, la corrección
 del negocio no depende de que cada caller recuerde validar.
@@ -210,4 +212,4 @@ caras de introducir después; mantienen el código predecible y escalable.
 - Para guía de desarrollo en runtime, los comandos de Spec Kit (`/speckit-plan`,
   `/speckit-tasks`, `/speckit-implement`) leen esta constitución como fuente de verdad.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-09-06
+**Version**: 1.0.1 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-09-21
