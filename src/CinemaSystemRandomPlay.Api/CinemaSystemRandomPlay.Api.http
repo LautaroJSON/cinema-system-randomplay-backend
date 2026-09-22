@@ -1,0 +1,13 @@
+@CinemaSystemRandomPlay.Api_HostAddress = http://localhost:5165
+
+### Listado de películas activas
+GET {{CinemaSystemRandomPlay.Api_HostAddress}}/api/catalogo/peliculas
+Accept: application/json
+
+### Listado filtrado por título (User Story 3)
+GET {{CinemaSystemRandomPlay.Api_HostAddress}}/api/catalogo/peliculas?titulo=amel
+Accept: application/json
+
+### Detalle de una película — reemplazá el id por uno real de tu base
+GET {{CinemaSystemRandomPlay.Api_HostAddress}}/api/catalogo/peliculas/00000000-0000-0000-0000-000000000000
+Accept: application/json

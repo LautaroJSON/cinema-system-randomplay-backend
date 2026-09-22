@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CinemaSystemRandomPlay.Api/CinemaSystemRandomPlay.Api.csproj" />
+    <Project Path="src/CinemaSystemRandomPlay.Application/CinemaSystemRandomPlay.Application.csproj" />
+    <Project Path="src/CinemaSystemRandomPlay.Domain/CinemaSystemRandomPlay.Domain.csproj" />
+    <Project Path="src/CinemaSystemRandomPlay.Infrastructure/CinemaSystemRandomPlay.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CinemaSystemRandomPlay.Application.UnitTests/CinemaSystemRandomPlay.Application.UnitTests.csproj" />
+    <Project Path="tests/CinemaSystemRandomPlay.Domain.UnitTests/CinemaSystemRandomPlay.Domain.UnitTests.csproj" />
+    <Project Path="tests/CinemaSystemRandomPlay.IntegrationTests/CinemaSystemRandomPlay.IntegrationTests.csproj" />
+  </Folder>
+</Solution>
