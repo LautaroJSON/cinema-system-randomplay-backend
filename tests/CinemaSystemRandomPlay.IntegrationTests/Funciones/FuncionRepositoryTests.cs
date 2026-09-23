@@ -143,4 +143,36 @@ public class FuncionRepositoryTests : IAsyncLifetime
         Assert.Equal("Sala 2", resultado[1].Sala!.Nombre);
         Assert.True(resultado[0].FechaHoraInicio < resultado[1].FechaHoraInicio);
     }
+
+    [Fact]
+    public async Task ObtenerConSala_FuncionExistente_CargaSalaConFilasYSucursal()
+    {
+        var pelicula = await CrearPelicula();
+        var funcion = new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro2Id, Ahora.AddHours(2));
+        _dbContext.Funciones.Add(funcion);
+        await _dbContext.SaveChangesAsync();
+        _dbContext.ChangeTracker.Clear();
+
+        var repository = new FuncionRepository(_dbContext);
+
+        var resultado = await repository.ObtenerConSala(funcion.Id);
+
+        Assert.NotNull(resultado);
+        var sala = Assert.IsType<Sala>(resultado!.Sala);
+        Assert.Equal("Sala 2", sala.Nombre);
+        Assert.Equal("Sucursal Centro", sala.Sucursal!.Nombre);
+        Assert.Equal(['A', 'B', 'C', 'D', 'E', 'F'], sala.Filas.Select(f => f.Letra));
+        Assert.Equal([8, 10, 12, 12, 14, 14], sala.Filas.Select(f => f.CantidadAsientos));
+        Assert.Equal(70, sala.TotalAsientos);
+    }
+
+    [Fact]
+    public async Task ObtenerConSala_FuncionInexistente_DevuelveNull()
+    {
+        var repository = new FuncionRepository(_dbContext);
+
+        var resultado = await repository.ObtenerConSala(Guid.NewGuid());
+
+        Assert.Null(resultado);
+    }
 }

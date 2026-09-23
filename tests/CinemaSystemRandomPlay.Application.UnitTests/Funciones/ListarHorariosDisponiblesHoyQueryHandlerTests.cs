@@ -15,7 +15,7 @@ public class ListarHorariosDisponiblesHoyQueryHandlerTests
     {
         var pelicula = new Pelicula(Guid.NewGuid(), "Matrix", 136, Clasificacion.Mas13, "Sinopsis.");
         var sucursalId = Guid.NewGuid();
-        var sala = new Sala(Guid.NewGuid(), sucursalId, "Sala 1");
+        var sala = new Sala(Guid.NewGuid(), sucursalId, "Sala 1", [new FilaSala('A', 10)]);
         var funcion = new Funcion(Guid.NewGuid(), pelicula.Id, sala.Id, Ahora.AddHours(2));
         typeof(Funcion).GetProperty(nameof(Funcion.Sala))!.SetValue(funcion, sala);
 

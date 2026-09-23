@@ -11,3 +11,7 @@ Accept: application/json
 ### Detalle de una película — reemplazá el id por uno real de tu base
 GET {{CinemaSystemRandomPlay.Api_HostAddress}}/api/catalogo/peliculas/00000000-0000-0000-0000-000000000000
 Accept: application/json
+
+### Mapa de asientos de una función: reemplazá el id por un funcionId de /horarios-hoy
+GET {{CinemaSystemRandomPlay.Api_HostAddress}}/api/funciones/00000000-0000-0000-0000-000000000000/asientos
+Accept: application/json

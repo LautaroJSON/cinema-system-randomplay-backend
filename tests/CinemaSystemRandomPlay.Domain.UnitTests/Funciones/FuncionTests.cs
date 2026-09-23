@@ -35,4 +35,31 @@ public class FuncionTests
         Assert.Throws<DomainException>(() =>
             new Funcion(Guid.NewGuid(), Guid.NewGuid(), Guid.Empty, DateTimeOffset.Now));
     }
+
+    [Fact]
+    public void YaComenzo_ConHorarioFuturo_DevuelveFalse()
+    {
+        var ahora = new DateTimeOffset(2026, 9, 23, 15, 0, 0, TimeSpan.FromHours(-3));
+        var funcion = new Funcion(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), ahora.AddMinutes(1));
+
+        Assert.False(funcion.YaComenzo(ahora));
+    }
+
+    [Fact]
+    public void YaComenzo_ConHorarioIgualAAhora_DevuelveFalse()
+    {
+        var ahora = new DateTimeOffset(2026, 9, 23, 15, 0, 0, TimeSpan.FromHours(-3));
+        var funcion = new Funcion(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), ahora);
+
+        Assert.False(funcion.YaComenzo(ahora));
+    }
+
+    [Fact]
+    public void YaComenzo_ConHorarioPasado_DevuelveTrue()
+    {
+        var ahora = new DateTimeOffset(2026, 9, 23, 15, 0, 0, TimeSpan.FromHours(-3));
+        var funcion = new Funcion(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), ahora.AddMinutes(-1));
+
+        Assert.True(funcion.YaComenzo(ahora));
+    }
 }

@@ -56,6 +56,15 @@ public class FuncionRepository : IFuncionRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<Funcion?> ObtenerConSala(Guid funcionId, CancellationToken cancellationToken = default)
+    {
+        // Sala.Filas es una colección owned: se carga junto con la Sala sin Include explícito.
+        return await _dbContext.Funciones
+            .Include(f => f.Sala)
+                .ThenInclude(s => s!.Sucursal)
+            .FirstOrDefaultAsync(f => f.Id == funcionId, cancellationToken);
+    }
+
     private static DateTimeOffset InicioDelDia(DateOnly dia)
     {
         var fecha = dia.ToDateTime(TimeOnly.MinValue);

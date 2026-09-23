@@ -82,7 +82,8 @@ Docker como en local — no hace falta insertar datos a mano para probar el fluj
 
 ## Datos de desarrollo
 
-`Sucursal` y `Sala` se siembran como datos de referencia estáticos en la migración inicial.
+`Sucursal`, `Sala` y la disposición de asientos de cada Sala (`SalaFilas`) se siembran como datos
+de referencia estáticos en las migraciones.
 `Funcion` se siembra en tiempo de ejecución (`DevDataSeeder`, solo en `Development`, idempotente)
 con horarios relativos al momento en que arranca la Api, para que siempre haya "funciones de
 hoy" disponibles sin importar qué día la levantes. El id de la película de demostración sembrada
@@ -98,10 +99,16 @@ Todos los endpoints listados son de acceso público (`[AllowAnonymous]` explíci
 | `GET` | `/api/catalogo/peliculas/{id}` | Detalle de una película activa (`404` si no existe o está inactiva) |
 | `GET` | `/api/funciones/peliculas/{peliculaId}/sucursales-hoy` | Sucursales con al menos una función hoy para esa película |
 | `GET` | `/api/funciones/peliculas/{peliculaId}/sucursales/{sucursalId}/horarios-hoy` | Horarios de hoy disponibles en esa Sucursal |
+| `GET` | `/api/funciones/{funcionId}/asientos` | Mapa de asientos de una función: filas de la Sala y asientos disponibles (`404` si no existe, `410` si ya comenzó) |
+
+En el mapa de asientos solo se envían los asientos **disponibles**. Todo asiento de la fila (de 1 a
+`cantidadAsientos`) que no figure en `asientosDisponibles` está ocupado, y el front debe mostrarlo
+como tal.
 
 Contratos completos, incluyendo códigos de error y ejemplos de body, en
-[`specs/001-catalogo-peliculas/contracts`](specs/001-catalogo-peliculas/contracts/catalogo-api.md)
-y [`specs/002-horarios-sucursal-hoy/contracts`](specs/002-horarios-sucursal-hoy/contracts/funciones-api.md).
+[`specs/001-catalogo-peliculas/contracts`](specs/001-catalogo-peliculas/contracts/catalogo-api.md),
+[`specs/002-horarios-sucursal-hoy/contracts`](specs/002-horarios-sucursal-hoy/contracts/funciones-api.md)
+y [`specs/003-mapa-asientos-funcion/contracts`](specs/003-mapa-asientos-funcion/contracts/mapa-asientos-api.md).
 En `Development` también está disponible el explorador OpenAPI en `/openapi/v1.json`.
 
 ## Testing

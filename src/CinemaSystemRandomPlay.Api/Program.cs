@@ -1,11 +1,13 @@
 using CinemaSystemRandomPlay.Application.Catalogo.Ports;
 using CinemaSystemRandomPlay.Application.Catalogo.Queries;
+using CinemaSystemRandomPlay.Application.Funciones.Ports;
 using CinemaSystemRandomPlay.Application.Funciones.Queries;
 using CinemaSystemRandomPlay.Domain.Catalogo;
 using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Infrastructure.Catalogo;
 using CinemaSystemRandomPlay.Infrastructure.Compartido;
+using CinemaSystemRandomPlay.Infrastructure.Funciones;
 using CinemaSystemRandomPlay.Infrastructure.Persistence;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Catalogo;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Funciones;
@@ -34,8 +36,10 @@ builder.Services.AddScoped<ObtenerDetallePeliculaQueryHandler>();
 
 // Funciones
 builder.Services.AddScoped<IFuncionRepository, FuncionRepository>();
+builder.Services.AddScoped<IOcupacionAsientos, SinAsientosOcupados>();
 builder.Services.AddScoped<ListarSucursalesConFuncionesHoyQueryHandler>();
 builder.Services.AddScoped<ListarHorariosDisponiblesHoyQueryHandler>();
+builder.Services.AddScoped<ObtenerMapaAsientosQueryHandler>();
 
 var app = builder.Build();
 

@@ -28,4 +28,6 @@ public class Funcion
         SalaId = salaId;
         FechaHoraInicio = fechaHoraInicio;
     }
+
+    public bool YaComenzo(DateTimeOffset ahora) => FechaHoraInicio < ahora;
 }
