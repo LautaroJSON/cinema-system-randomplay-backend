@@ -24,13 +24,13 @@ src/
 
 - **Domain** no referencia EF Core, ASP.NET Core ni ningún framework de infraestructura.
 - **Application** depende únicamente de tipos e interfaces de `Domain`.
-- **Infrastructure** implementa esos puertos (repositorios, reloj) y no es referenciada por
+- **Infrastructure** implementa esos puertos (repositorios, reloj, ocupación de asientos) y no es referenciada por
   `Domain` ni `Application`.
 - **Api** solo traduce HTTP ↔ casos de uso; no contiene lógica de negocio.
 - Toda dependencia externa (repositorios, proveedor de fecha/hora) se consume vía interfaz,
   resuelta con el contenedor de DI nativo de ASP.NET Core.
-- Los tipos del dominio se nombran en español (`Pelicula`, `Sucursal`, `Sala`, `Funcion`),
-  reflejando el lenguaje ubicuo del negocio.
+- Los tipos del dominio se nombran en español (`Pelicula`, `Sucursal`, `Sala`, `Funcion`, y
+  los Value Objects `Asiento` y `FilaSala`), reflejando el lenguaje ubicuo del negocio.
 
 Cada módulo (`Catalogo`, `Funciones`, …) se organiza por carpeta dentro de cada capa, no por
 proyecto — un único monolito modular, sin microservicios.
@@ -41,10 +41,23 @@ proyecto — un único monolito modular, sin microservicios.
 |---|---|---|
 | Catálogo de Películas | [specs/001-catalogo-peliculas](specs/001-catalogo-peliculas/spec.md) | ✅ Listado, filtro por título y detalle de películas activas |
 | Horarios por Sucursal — Funciones de Hoy | [specs/002-horarios-sucursal-hoy](specs/002-horarios-sucursal-hoy/spec.md) | ✅ Sucursales con funciones hoy y horarios disponibles por Sucursal |
+| Mapa de Asientos de una Función | [specs/003-mapa-asientos-funcion](specs/003-mapa-asientos-funcion/spec.md) | ✅ Disposición de la Sala (filas y asientos) y asientos disponibles de una función |
 
-Ambas son features de **solo lectura y acceso público** (sin autenticación) — `Sucursal`, `Sala`
-y `Funcion` todavía no tienen alta/administración vía API: sus datos se cargan sembrados
-directamente en la base de datos (ver [Datos de desarrollo](#datos-de-desarrollo) más abajo).
+Las tres son features de **solo lectura y acceso público** (sin autenticación). `Sucursal`,
+`Sala` (con su disposición de asientos) y `Funcion` todavía no tienen alta ni administración vía
+API: sus datos se cargan sembrados directamente en la base de datos (ver
+[Datos de desarrollo](#datos-de-desarrollo) más abajo).
+
+### Flujo que puede consumir un cliente hoy
+
+1. **Cartelera**: `GET /api/catalogo/peliculas` → el usuario elige una película.
+2. **Detalle**: `GET /api/catalogo/peliculas/{id}`.
+3. **Sucursales con funciones hoy**: `GET /api/funciones/peliculas/{peliculaId}/sucursales-hoy` → elige una sucursal.
+4. **Horarios de hoy**: `GET /api/funciones/peliculas/{peliculaId}/sucursales/{sucursalId}/horarios-hoy` → elige un horario (`funcionId`).
+5. **Mapa de asientos**: `GET /api/funciones/{funcionId}/asientos` → ve qué asientos están disponibles.
+
+El próximo paso del flujo es la **reserva de asientos** (feature pendiente), que exigirá
+autenticación y será la primera feature que modifique estado.
 
 ## Cómo levantar el sistema
 
@@ -110,6 +123,40 @@ Contratos completos, incluyendo códigos de error y ejemplos de body, en
 [`specs/002-horarios-sucursal-hoy/contracts`](specs/002-horarios-sucursal-hoy/contracts/funciones-api.md)
 y [`specs/003-mapa-asientos-funcion/contracts`](specs/003-mapa-asientos-funcion/contracts/mapa-asientos-api.md).
 En `Development` también está disponible el explorador OpenAPI en `/openapi/v1.json`.
+
+### Forma de la respuesta del mapa de asientos
+
+```ts
+interface MapaAsientosResponse {
+  funcionId: string;
+  horaInicio: string;           // ISO 8601
+  peliculaId: string;
+  peliculaTitulo: string;
+  sucursalId: string;
+  sucursalNombre: string;
+  salaId: string;
+  salaNombre: string;
+  totalAsientos: number;
+  cantidadDisponibles: number;  // 0 => función agotada
+  filas: {
+    fila: string;               // "A".."Z", en orden alfabético
+    cantidadAsientos: number;   // los asientos de la fila son 1..cantidadAsientos
+    asientosDisponibles: number[]; // lo que no está acá, está ocupado
+  }[];
+}
+```
+
+## Deuda técnica conocida
+
+Simplificaciones deliberadas, documentadas en el `research.md` de cada feature:
+
+- **Ocupación de asientos**: `SinAsientosOcupados` (stub de `IOcupacionAsientos`) informa todos los
+  asientos como disponibles hasta que exista la feature de Reservas, que reemplazará solo su
+  registro en `Program.cs`, sin cambiar el contrato HTTP.
+- **Marca "sin funciones disponibles" del Catálogo**: `NingunaFuncionDisponibleChecker` sigue
+  devolviendo que ninguna película tiene funciones, aunque el módulo `Funciones` ya existe.
+- **CORS**: no está configurado; un front web servido desde otro origen necesita configurarlo o
+  usar un proxy en desarrollo.
 
 ## Testing
 
