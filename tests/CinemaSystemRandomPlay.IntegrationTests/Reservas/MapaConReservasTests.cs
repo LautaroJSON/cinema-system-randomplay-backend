@@ -19,7 +19,7 @@ public class MapaConReservasTests : IClassFixture<ReservasApiFactory>
         _factory = factory;
     }
 
-    private HttpClient Ana() => _factory.CrearCliente(TokensDePrueba.Customer("ana"));
+    private HttpClient Ana() => _factory.CrearCliente(TokensDePrueba.Invitado("ana@example.com"));
 
     private async Task<MapaAsientosResponse> ObtenerMapa(Guid funcionId)
     {

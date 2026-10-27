@@ -1,5 +1,7 @@
 # Contrato de API: Reserva de Asientos de una Función
 
+> **Nota (feature 006):** el mecanismo de identidad de este documento (usuario autenticado con rol `Customer`, identificado por el claim `sub`) fue reemplazado por el **comprador invitado con email verificado**. El comportamiento de negocio de la reserva no cambia. Ver [contracts/reservas-api.md de la feature 006](../../006-comprador-invitado-email/contracts/reservas-api.md).
+
 ## Autenticación y autorización
 
 Todos los endpoints de este documento exigen un token JWT bearer válido emitido por el proveedor OIDC

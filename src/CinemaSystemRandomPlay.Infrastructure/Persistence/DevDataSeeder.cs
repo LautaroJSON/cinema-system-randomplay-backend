@@ -1,5 +1,5 @@
-using CinemaSystemRandomPlay.Domain.Catalogo;
 using CinemaSystemRandomPlay.Domain.Compartido;
+using CinemaSystemRandomPlay.Domain.Catalogo;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Funciones;
 using Microsoft.EntityFrameworkCore;

@@ -6,6 +6,8 @@ using CinemaSystemRandomPlay.Infrastructure.Persistence.Funciones;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Reservas;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using CinemaSystemRandomPlay.Domain.Compradores;
+using static CinemaSystemRandomPlay.IntegrationTests.CompradoresDePrueba;
 
 namespace CinemaSystemRandomPlay.IntegrationTests.Reservas;
 
@@ -18,7 +20,7 @@ public class ReservaRepositoryTests : IClassFixture<ReservasApiFactory>
         _factory = factory;
     }
 
-    private async Task<Reserva> Guardar(Guid funcionId, string cliente, DateTimeOffset creadaEn, bool cancelar = false, params Asiento[] asientos)
+    private async Task<Reserva> Guardar(Guid funcionId, EmailComprador cliente, DateTimeOffset creadaEn, bool cancelar = false, params Asiento[] asientos)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
@@ -37,10 +39,10 @@ public class ReservaRepositoryTests : IClassFixture<ReservasApiFactory>
         var ahora = _factory.Reloj.Ahora;
         var funcionId = await _factory.SembrarFuncion(SalaEntityConfiguration.SalaCentro1Id, TimeSpan.FromHours(3));
         var otraFuncionId = await _factory.AgregarFuncion(SalaEntityConfiguration.SalaCentro1Id, TimeSpan.FromHours(4));
-        var vigente = await Guardar(funcionId, "ana", ahora, asientos: new Asiento('A', 1));
-        await Guardar(funcionId, "beto", ahora.AddMinutes(-20), asientos: new Asiento('A', 2));
-        await Guardar(funcionId, "caro", ahora, cancelar: true, asientos: new Asiento('A', 3));
-        await Guardar(otraFuncionId, "ana", ahora, asientos: new Asiento('A', 1));
+        var vigente = await Guardar(funcionId, Ana, ahora, asientos: new Asiento('A', 1));
+        await Guardar(funcionId, Beto, ahora.AddMinutes(-20), asientos: new Asiento('A', 2));
+        await Guardar(funcionId, EmailComprador.Crear("caro@example.com"), ahora, cancelar: true, asientos: new Asiento('A', 3));
+        await Guardar(otraFuncionId, Ana, ahora, asientos: new Asiento('A', 1));
 
         using var scope = _factory.Services.CreateScope();
         var repositorio = new ReservaRepository(scope.ServiceProvider.GetRequiredService<CinemaDbContext>());
@@ -58,7 +60,7 @@ public class ReservaRepositoryTests : IClassFixture<ReservasApiFactory>
         var ahora = _factory.Reloj.Ahora;
         ahora = new DateTimeOffset(ahora.Ticks - ahora.Ticks % TimeSpan.TicksPerSecond, ahora.Offset);
         var funcionId = await _factory.SembrarFuncion(SalaEntityConfiguration.SalaCentro1Id, TimeSpan.FromHours(3));
-        var reserva = await Guardar(funcionId, "ana", ahora, asientos: new Asiento('A', 1));
+        var reserva = await Guardar(funcionId, Ana, ahora, asientos: new Asiento('A', 1));
 
         using var scope = _factory.Services.CreateScope();
         var repositorio = new ReservaRepository(scope.ServiceProvider.GetRequiredService<CinemaDbContext>());
@@ -72,16 +74,16 @@ public class ReservaRepositoryTests : IClassFixture<ReservasApiFactory>
     {
         var ahora = _factory.Reloj.Ahora;
         var funcionId = await _factory.SembrarFuncion(SalaEntityConfiguration.SalaCentro1Id, TimeSpan.FromHours(3));
-        var vieja = await Guardar(funcionId, "ana", ahora.AddMinutes(-30), asientos: [new Asiento('B', 2), new Asiento('B', 1)]);
-        var nueva = await Guardar(funcionId, "ana", ahora, asientos: new Asiento('C', 1));
-        await Guardar(funcionId, "beto", ahora, asientos: new Asiento('D', 1));
+        var vieja = await Guardar(funcionId, Ana, ahora.AddMinutes(-30), asientos: [new Asiento('B', 2), new Asiento('B', 1)]);
+        var nueva = await Guardar(funcionId, Ana, ahora, asientos: new Asiento('C', 1));
+        await Guardar(funcionId, Beto, ahora, asientos: new Asiento('D', 1));
 
         using var scope = _factory.Services.CreateScope();
         var consulta = new ConsultaReservas(scope.ServiceProvider.GetRequiredService<CinemaDbContext>());
 
-        var deAna = await consulta.ListarDeCliente("ana");
-        var propia = await consulta.ObtenerDeCliente(vieja.Id, "ana");
-        var ajena = await consulta.ObtenerDeCliente(vieja.Id, "beto");
+        var deAna = await consulta.ListarDeComprador(Ana);
+        var propia = await consulta.ObtenerDeComprador(vieja.Id, Ana);
+        var ajena = await consulta.ObtenerDeComprador(vieja.Id, Beto);
 
         Assert.Equal([nueva.Id, vieja.Id], deAna.Select(r => r.Id));
         Assert.Null(ajena);

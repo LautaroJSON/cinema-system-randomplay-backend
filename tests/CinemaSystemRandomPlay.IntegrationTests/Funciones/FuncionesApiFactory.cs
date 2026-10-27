@@ -22,7 +22,8 @@ public class FuncionesApiFactory : WebApplicationFactory<Program>, IAsyncLifetim
         {
             configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:CinemaDb"] = _postgres.ConnectionString
+                ["ConnectionStrings:CinemaDb"] = _postgres.ConnectionString,
+                ["Invitados:ClaveFirma"] = TokensDePrueba.ClaveFirmaDePrueba
             });
         });
     }

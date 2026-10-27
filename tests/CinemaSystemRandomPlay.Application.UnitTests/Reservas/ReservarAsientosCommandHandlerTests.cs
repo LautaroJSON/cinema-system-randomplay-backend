@@ -8,6 +8,8 @@ using CinemaSystemRandomPlay.Domain.Reservas;
 using CinemaSystemRandomPlay.Domain.Reservas.Eventos;
 using NSubstitute;
 using static CinemaSystemRandomPlay.Application.UnitTests.Reservas.ReservasTestSupport;
+using CinemaSystemRandomPlay.Domain.Compradores;
+using static CinemaSystemRandomPlay.Application.UnitTests.CompradoresDePrueba;
 
 namespace CinemaSystemRandomPlay.Application.UnitTests.Reservas;
 
@@ -52,7 +54,7 @@ public class ReservarAsientosCommandHandlerTests
     {
         var (funcion, pelicula) = ConfigurarFuncion();
 
-        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, "ana", Pedido(("A", 2), ("A", 1))));
+        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, Ana, Pedido(("A", 2), ("A", 1))));
 
         Assert.Equal(EstadoReservarAsientos.Ok, resultado.Estado);
         var reserva = resultado.Reserva!;
@@ -61,7 +63,7 @@ public class ReservarAsientosCommandHandlerTests
         Assert.Equal([new AsientoPedidoDto("A", 1), new AsientoPedidoDto("A", 2)], reserva.Asientos);
         Assert.Equal(pelicula.Titulo, reserva.Funcion.PeliculaTitulo);
         Assert.Equal("Sucursal Centro", reserva.Funcion.SucursalNombre);
-        await _reservaRepository.Received(1).Agregar(Arg.Is<Reserva>(r => r.ClienteId == "ana" && r.Id == reserva.Id), Arg.Any<CancellationToken>());
+        await _reservaRepository.Received(1).Agregar(Arg.Is<Reserva>(r => r.Comprador == Ana && r.Id == reserva.Id), Arg.Any<CancellationToken>());
         _outbox.Received(1).Registrar(Arg.Is<object>(e => e is ReservaCreada && ((ReservaCreada)e).ReservaId == reserva.Id));
     }
 
@@ -70,7 +72,7 @@ public class ReservarAsientosCommandHandlerTests
     {
         var (funcion, _) = ConfigurarFuncion();
 
-        await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, "ana", Pedido(("A", 1))));
+        await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, Ana, Pedido(("A", 1))));
 
         Assert.Equal(1, _unidadDeTrabajo.Ejecuciones);
         await _funcionRepository.Received(1).ObtenerConSalaBloqueando(funcion.Id, Arg.Any<CancellationToken>());
@@ -94,7 +96,7 @@ public class ReservarAsientosCommandHandlerTests
     {
         var (funcion, _) = ConfigurarFuncion();
 
-        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, "ana", asientos));
+        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, Ana, asientos));
 
         Assert.Equal(EstadoReservarAsientos.PedidoInvalido, resultado.Estado);
         Assert.NotEmpty(resultado.Errores!);
@@ -105,7 +107,7 @@ public class ReservarAsientosCommandHandlerTests
     [Fact]
     public async Task Handle_FuncionInexistente_DevuelveFuncionNoEncontrada()
     {
-        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(Guid.NewGuid(), "ana", Pedido(("A", 1))));
+        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(Guid.NewGuid(), Ana, Pedido(("A", 1))));
 
         Assert.Equal(EstadoReservarAsientos.FuncionNoEncontrada, resultado.Estado);
         await AssertNadaEscrito();
@@ -116,7 +118,7 @@ public class ReservarAsientosCommandHandlerTests
     {
         var (funcion, _) = ConfigurarFuncion(peliculaActiva: false);
 
-        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, "ana", Pedido(("A", 1))));
+        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, Ana, Pedido(("A", 1))));
 
         Assert.Equal(EstadoReservarAsientos.FuncionNoEncontrada, resultado.Estado);
         await AssertNadaEscrito();
@@ -127,7 +129,7 @@ public class ReservarAsientosCommandHandlerTests
     {
         var (funcion, _) = ConfigurarFuncion(inicio: Ahora.AddMinutes(-1));
 
-        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, "ana", Pedido(("A", 1))));
+        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, Ana, Pedido(("A", 1))));
 
         Assert.Equal(EstadoReservarAsientos.FuncionNoDisponible, resultado.Estado);
         await AssertNadaEscrito();
@@ -138,7 +140,7 @@ public class ReservarAsientosCommandHandlerTests
     {
         var (funcion, _) = ConfigurarFuncion();
 
-        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, "ana", Pedido(("A", 1), ("Z", 1))));
+        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, Ana, Pedido(("A", 1), ("Z", 1))));
 
         Assert.Equal(EstadoReservarAsientos.AsientosInexistentes, resultado.Estado);
         Assert.Equal([new AsientoPedidoDto("Z", 1)], resultado.Asientos);
@@ -149,10 +151,10 @@ public class ReservarAsientosCommandHandlerTests
     public async Task Handle_AsientoYaRetenido_DevuelveNoDisponiblesSinEscribir()
     {
         var (funcion, _) = ConfigurarFuncion();
-        var previa = new ReservadorDeAsientos().Reservar(funcion, [], "beto", [new Asiento('A', 1)], Ahora, new ReglasReserva()).Reserva!;
+        var previa = new ReservadorDeAsientos().Reservar(funcion, [], Beto, [new Asiento('A', 1)], Ahora, new ReglasReserva()).Reserva!;
         _reservaRepository.ListarVigentesDeFuncion(funcion.Id, Ahora, Arg.Any<CancellationToken>()).Returns(new[] { previa });
 
-        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, "ana", Pedido(("A", 1), ("A", 2))));
+        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, Ana, Pedido(("A", 1), ("A", 2))));
 
         Assert.Equal(EstadoReservarAsientos.AsientosNoDisponibles, resultado.Estado);
         Assert.Equal([new AsientoPedidoDto("A", 1)], resultado.Asientos);
@@ -164,10 +166,10 @@ public class ReservarAsientosCommandHandlerTests
     {
         var (funcion, _) = ConfigurarFuncion();
         var siete = Enumerable.Range(1, 7).Select(n => new Asiento('A', n)).ToArray();
-        var previa = new ReservadorDeAsientos().Reservar(funcion, [], "ana", siete, Ahora, new ReglasReserva()).Reserva!;
+        var previa = new ReservadorDeAsientos().Reservar(funcion, [], Ana, siete, Ahora, new ReglasReserva()).Reserva!;
         _reservaRepository.ListarVigentesDeFuncion(funcion.Id, Ahora, Arg.Any<CancellationToken>()).Returns(new[] { previa });
 
-        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, "ana",
+        var resultado = await CrearHandler().Handle(new ReservarAsientosCommand(funcion.Id, Ana,
             Pedido(("B", 1), ("B", 2), ("B", 3), ("B", 4))));
 
         Assert.Equal(EstadoReservarAsientos.LimiteSuperado, resultado.Estado);

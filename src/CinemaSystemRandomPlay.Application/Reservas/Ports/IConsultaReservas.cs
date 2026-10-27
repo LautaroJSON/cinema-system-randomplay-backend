@@ -1,4 +1,5 @@
 using CinemaSystemRandomPlay.Domain.Compartido;
+using CinemaSystemRandomPlay.Domain.Compradores;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Domain.Reservas;
 
@@ -27,7 +28,7 @@ public record ReservaLecturaDto(
 
 public interface IConsultaReservas
 {
-    Task<IReadOnlyList<ReservaLecturaDto>> ListarDeCliente(string clienteId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ReservaLecturaDto>> ListarDeComprador(EmailComprador comprador, CancellationToken cancellationToken = default);
 
-    Task<ReservaLecturaDto?> ObtenerDeCliente(Guid reservaId, string clienteId, CancellationToken cancellationToken = default);
+    Task<ReservaLecturaDto?> ObtenerDeComprador(Guid reservaId, EmailComprador comprador, CancellationToken cancellationToken = default);
 }

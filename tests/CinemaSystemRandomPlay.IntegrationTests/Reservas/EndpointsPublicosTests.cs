@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Http.Json;
+using CinemaSystemRandomPlay.IntegrationTests.Compartido;
 using CinemaSystemRandomPlay.Domain.Catalogo;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Infrastructure.Persistence;
@@ -8,8 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace CinemaSystemRandomPlay.IntegrationTests.Reservas;
 
 /// <summary>
-/// Regresión de FR-024 / SC-007: con la autenticación y el fallback cerrado activos, los endpoints públicos
-/// existentes siguen respondiendo sin token.
+/// FR-017 / FR-018 / SC-005: con la autenticación y el fallback cerrado activos, los endpoints públicos existentes
+/// y los dos de verificación de email responden sin credencial; el resto exige una.
 /// </summary>
 public class EndpointsPublicosTests : IClassFixture<ReservasApiFactory>
 {
@@ -58,6 +60,45 @@ public class EndpointsPublicosTests : IClassFixture<ReservasApiFactory>
         // Los endpoints de Reservas declaran su política; sin token no se llega a ellos (401), lo que
         // confirma que el fallback exige usuario autenticado.
         var response = await _factory.CrearCliente().GetAsync("/api/reservas");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task EndpointsDeVerificacionDeEmail_SonPublicos()
+    {
+        var cliente = _factory.CrearCliente();
+
+        var pedir = await cliente.PostAsJsonAsync("/api/verificaciones-email", new { email = "publico@example.com" });
+        var confirmar = await cliente.PostAsJsonAsync("/api/verificaciones-email/confirmacion", new { email = "publico@example.com", codigo = "000000" });
+
+        Assert.Equal(HttpStatusCode.Accepted, pedir.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, confirmar.StatusCode);
+    }
+
+    [Fact]
+    public async Task OperacionesDelComprador_SinCredencial_Devuelven401()
+    {
+        var cliente = _factory.CrearCliente();
+        var id = Guid.NewGuid();
+
+        var respuestas = new[]
+        {
+            await cliente.PostAsJsonAsync($"/api/funciones/{id}/reservas", new { asientos = new[] { new { fila = "A", numero = 1 } } }),
+            await cliente.GetAsync("/api/reservas"),
+            await cliente.GetAsync($"/api/reservas/{id}"),
+            await cliente.PostAsync($"/api/reservas/{id}/cancelacion", content: null)
+        };
+
+        Assert.All(respuestas, r => Assert.Equal(HttpStatusCode.Unauthorized, r.StatusCode));
+    }
+
+    [Fact]
+    public async Task UnTokenDelPersonal_NoAbreLasOperacionesDelComprador()
+    {
+        var cliente = _factory.CrearCliente(TokensDePrueba.Crear("admin", ["Admin"]));
+
+        var response = await cliente.GetAsync("/api/reservas");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }

@@ -2,6 +2,8 @@ using CinemaSystemRandomPlay.Application.Compartido.Ports;
 using CinemaSystemRandomPlay.Domain.Catalogo;
 using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
+using CinemaSystemRandomPlay.Domain.Compradores;
+using static CinemaSystemRandomPlay.Application.UnitTests.CompradoresDePrueba;
 
 namespace CinemaSystemRandomPlay.Application.UnitTests.Reservas;
 

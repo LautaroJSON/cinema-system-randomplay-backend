@@ -29,7 +29,7 @@ public class ReservaConcurrenteTests : IClassFixture<ReservasApiFactory>
 
         var tareas = Enumerable.Range(0, pedidos).Select(async i =>
         {
-            var cliente = _factory.CrearCliente(TokensDePrueba.Customer($"cliente-{i}"));
+            var cliente = _factory.CrearCliente(TokensDePrueba.Invitado($"cliente-{i}@example.com"));
             await puerta.Task;
             return await cliente.Reservar(funcionId, "D8");
         }).ToList();
@@ -61,7 +61,7 @@ public class ReservaConcurrenteTests : IClassFixture<ReservasApiFactory>
         // Cada pedido toma 3 asientos consecutivos de la fila E; los vecinos se solapan.
         var tareas = Enumerable.Range(1, 10).Select(async i =>
         {
-            var cliente = _factory.CrearCliente(TokensDePrueba.Customer($"cliente-{i}"));
+            var cliente = _factory.CrearCliente(TokensDePrueba.Invitado($"cliente-{i}@example.com"));
             await puerta.Task;
             return await cliente.Reservar(funcionId, $"E{i}", $"E{i + 1}", $"E{i + 2}");
         }).ToList();
@@ -80,7 +80,7 @@ public class ReservaConcurrenteTests : IClassFixture<ReservasApiFactory>
     public async Task MismoClienteConDosPedidosDeSeisAsientosEnParalelo_SoloUnoProspera()
     {
         var funcionId = await _factory.SembrarFuncion(SalaEntityConfiguration.SalaCentro1Id, TimeSpan.FromHours(3));
-        var token = TokensDePrueba.Customer("ana");
+        var token = TokensDePrueba.Invitado("ana@example.com");
         var puerta = new TaskCompletionSource();
 
         var primero = Task.Run(async () =>

@@ -1,4 +1,5 @@
 using CinemaSystemRandomPlay.Domain.Compartido;
+using CinemaSystemRandomPlay.Domain.Compradores;
 using CinemaSystemRandomPlay.Domain.Funciones;
 
 namespace CinemaSystemRandomPlay.Domain.Reservas;
@@ -9,7 +10,7 @@ public class Reserva
 
     public Guid Id { get; private set; }
     public Guid FuncionId { get; private set; }
-    public string ClienteId { get; private set; } = string.Empty;
+    public EmailComprador Comprador { get; private set; } = null!;
     public EstadoReserva Estado { get; private set; }
     public DateTimeOffset CreadaEn { get; private set; }
     public DateTimeOffset VenceEn { get; private set; }
@@ -23,14 +24,14 @@ public class Reserva
     {
     }
 
-    internal static Reserva Crear(Guid id, Guid funcionId, string clienteId, IReadOnlyList<Asiento> asientos,
+    internal static Reserva Crear(Guid id, Guid funcionId, EmailComprador comprador, IReadOnlyList<Asiento> asientos,
         Dinero precioUnitario, DateTimeOffset creadaEn, DateTimeOffset venceEn, int maximoAsientos)
     {
         if (funcionId == Guid.Empty)
             throw new DomainException("La Reserva debe tener una Funcion asociada.");
 
-        if (string.IsNullOrWhiteSpace(clienteId) || clienteId.Length > 255)
-            throw new DomainException("El Cliente de la Reserva no puede estar vacío ni superar 255 caracteres.");
+        if (comprador is null)
+            throw new DomainException("La Reserva debe tener un comprador.");
 
         if (asientos is null || asientos.Count < 1 || asientos.Count > maximoAsientos)
             throw new DomainException($"La Reserva debe tener entre 1 y {maximoAsientos} asientos.");
@@ -45,7 +46,7 @@ public class Reserva
         {
             Id = id,
             FuncionId = funcionId,
-            ClienteId = clienteId,
+            Comprador = comprador,
             Estado = EstadoReserva.PendienteDePago,
             CreadaEn = creadaEn,
             VenceEn = venceEn,

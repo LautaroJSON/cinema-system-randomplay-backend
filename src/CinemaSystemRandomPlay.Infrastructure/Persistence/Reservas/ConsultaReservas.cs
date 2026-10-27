@@ -1,5 +1,6 @@
 using CinemaSystemRandomPlay.Application.Reservas.Ports;
 using CinemaSystemRandomPlay.Domain.Compartido;
+using CinemaSystemRandomPlay.Domain.Compradores;
 using CinemaSystemRandomPlay.Domain.Reservas;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,26 +15,26 @@ public class ConsultaReservas : IConsultaReservas
         _dbContext = dbContext;
     }
 
-    public async Task<IReadOnlyList<ReservaLecturaDto>> ListarDeCliente(string clienteId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ReservaLecturaDto>> ListarDeComprador(EmailComprador comprador, CancellationToken cancellationToken = default)
     {
-        var filas = await ConContexto(clienteId).ToListAsync(cancellationToken);
+        var filas = await ConContexto(comprador).ToListAsync(cancellationToken);
 
         return (await ConAsientos(filas, cancellationToken))
             .OrderByDescending(r => r.CreadaEn)
             .ToList();
     }
 
-    public async Task<ReservaLecturaDto?> ObtenerDeCliente(Guid reservaId, string clienteId, CancellationToken cancellationToken = default)
+    public async Task<ReservaLecturaDto?> ObtenerDeComprador(Guid reservaId, EmailComprador comprador, CancellationToken cancellationToken = default)
     {
-        var filas = await ConContexto(clienteId, reservaId).ToListAsync(cancellationToken);
+        var filas = await ConContexto(comprador, reservaId).ToListAsync(cancellationToken);
 
         return (await ConAsientos(filas, cancellationToken)).SingleOrDefault();
     }
 
-    private IQueryable<FilaReserva> ConContexto(string clienteId, Guid? reservaId = null)
+    private IQueryable<FilaReserva> ConContexto(EmailComprador comprador, Guid? reservaId = null)
     {
         return from r in _dbContext.Reservas.AsNoTracking()
-               where r.ClienteId == clienteId && (reservaId == null || r.Id == reservaId)
+               where r.Comprador == comprador && (reservaId == null || r.Id == reservaId)
                join f in _dbContext.Funciones on r.FuncionId equals f.Id
                join p in _dbContext.Peliculas on f.PeliculaId equals p.Id
                join s in _dbContext.Salas on f.SalaId equals s.Id

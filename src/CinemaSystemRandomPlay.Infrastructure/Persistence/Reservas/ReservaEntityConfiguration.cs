@@ -1,3 +1,4 @@
+using CinemaSystemRandomPlay.Domain.Compradores;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Domain.Reservas;
 using Microsoft.EntityFrameworkCore;
@@ -19,9 +20,11 @@ public class ReservaEntityConfiguration : IEntityTypeConfiguration<Reserva>
         builder.Property(r => r.FuncionId)
             .IsRequired();
 
-        builder.Property(r => r.ClienteId)
+        builder.Property(r => r.Comprador)
+            .HasColumnName("CompradorEmail")
+            .HasConversion(c => c.Valor, v => EmailComprador.Crear(v))
             .IsRequired()
-            .HasMaxLength(255);
+            .HasMaxLength(EmailComprador.LargoMaximo);
 
         builder.Property(r => r.Estado)
             .IsRequired()
@@ -53,7 +56,7 @@ public class ReservaEntityConfiguration : IEntityTypeConfiguration<Reserva>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(r => new { r.FuncionId, r.Estado, r.VenceEn });
-        builder.HasIndex(r => new { r.ClienteId, r.CreadaEn });
+        builder.HasIndex(r => new { r.Comprador, r.CreadaEn });
 
         builder.OwnsMany(r => r.Asientos, asientos =>
         {

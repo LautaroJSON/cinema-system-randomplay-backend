@@ -1,6 +1,7 @@
 using CinemaSystemRandomPlay.Domain.Catalogo;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Domain.Reservas;
+using CinemaSystemRandomPlay.Domain.Verificaciones;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Outbox;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,6 +22,8 @@ public class CinemaDbContext : DbContext
     public DbSet<Funcion> Funciones => Set<Funcion>();
 
     public DbSet<Reserva> Reservas => Set<Reserva>();
+
+    public DbSet<VerificacionEmail> VerificacionesEmail => Set<VerificacionEmail>();
 
     public DbSet<OutboxMensaje> OutboxMensajes => Set<OutboxMensaje>();
 

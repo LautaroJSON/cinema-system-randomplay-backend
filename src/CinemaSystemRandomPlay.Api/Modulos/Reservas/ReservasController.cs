@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CinemaSystemRandomPlay.Api.Modulos.Reservas;
 
 [ApiController]
-[Authorize(Policy = Politicas.Customer)]
+[Authorize(Policy = Politicas.InvitadoVerificado)]
 public class ReservasController : ControllerBase
 {
     private readonly ReservarAsientosCommandHandler _reservarAsientosCommandHandler;
@@ -33,15 +33,15 @@ public class ReservasController : ControllerBase
     [HttpPost("api/funciones/{funcionId:guid}/reservas")]
     public async Task<IActionResult> Reservar(Guid funcionId, [FromBody] CrearReservaRequest request, CancellationToken cancellationToken)
     {
-        var clienteId = User.ObtenerClienteId();
-        if (clienteId is null)
+        var comprador = User.ObtenerComprador();
+        if (comprador is null)
             return Unauthorized();
 
         var asientos = request.Asientos?
             .Select(a => new AsientoPedidoDto(a?.Fila ?? string.Empty, a?.Numero ?? 0))
             .ToList();
 
-        var resultado = await _reservarAsientosCommandHandler.Handle(new ReservarAsientosCommand(funcionId, clienteId, asientos), cancellationToken);
+        var resultado = await _reservarAsientosCommandHandler.Handle(new ReservarAsientosCommand(funcionId, comprador, asientos), cancellationToken);
 
         return resultado.Estado switch
         {
@@ -58,7 +58,7 @@ public class ReservasController : ControllerBase
             EstadoReservarAsientos.AsientosNoDisponibles => ProblemasDeNegocio.Crear(StatusCodes.Status409Conflict,
                 "Hay asientos que ya no están disponibles.", "asientos-no-disponibles", Asientos(resultado.Asientos!)),
             _ => ProblemasDeNegocio.Crear(StatusCodes.Status409Conflict,
-                "El pedido superaría el máximo de asientos retenidos por Cliente en la función.", "limite-asientos-superado",
+                "El pedido superaría el máximo de asientos retenidos por comprador en la función.", "limite-asientos-superado",
                 new Dictionary<string, object?> { ["asientosRestantes"] = resultado.AsientosRestantes })
         };
     }
@@ -66,11 +66,11 @@ public class ReservasController : ControllerBase
     [HttpGet("api/reservas")]
     public async Task<ActionResult<IReadOnlyList<ReservaResponse>>> ListarMisReservas(CancellationToken cancellationToken)
     {
-        var clienteId = User.ObtenerClienteId();
-        if (clienteId is null)
+        var comprador = User.ObtenerComprador();
+        if (comprador is null)
             return Unauthorized();
 
-        var reservas = await _listarMisReservasQueryHandler.Handle(new ListarMisReservasQuery(clienteId), cancellationToken);
+        var reservas = await _listarMisReservasQueryHandler.Handle(new ListarMisReservasQuery(comprador), cancellationToken);
 
         return Ok(reservas.Select(ReservaResponse.DesdeDto).ToList());
     }
@@ -78,11 +78,11 @@ public class ReservasController : ControllerBase
     [HttpGet("api/reservas/{reservaId:guid}")]
     public async Task<ActionResult<ReservaResponse>> ObtenerReserva(Guid reservaId, CancellationToken cancellationToken)
     {
-        var clienteId = User.ObtenerClienteId();
-        if (clienteId is null)
+        var comprador = User.ObtenerComprador();
+        if (comprador is null)
             return Unauthorized();
 
-        var reserva = await _obtenerMiReservaQueryHandler.Handle(new ObtenerMiReservaQuery(reservaId, clienteId), cancellationToken);
+        var reserva = await _obtenerMiReservaQueryHandler.Handle(new ObtenerMiReservaQuery(reservaId, comprador), cancellationToken);
 
         return reserva is null ? ReservaNoEncontrada() : Ok(ReservaResponse.DesdeDto(reserva));
     }
@@ -90,11 +90,11 @@ public class ReservasController : ControllerBase
     [HttpPost("api/reservas/{reservaId:guid}/cancelacion")]
     public async Task<IActionResult> Cancelar(Guid reservaId, CancellationToken cancellationToken)
     {
-        var clienteId = User.ObtenerClienteId();
-        if (clienteId is null)
+        var comprador = User.ObtenerComprador();
+        if (comprador is null)
             return Unauthorized();
 
-        var resultado = await _cancelarReservaCommandHandler.Handle(new CancelarReservaCommand(reservaId, clienteId), cancellationToken);
+        var resultado = await _cancelarReservaCommandHandler.Handle(new CancelarReservaCommand(reservaId, comprador), cancellationToken);
 
         return resultado.Estado switch
         {

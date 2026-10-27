@@ -1,5 +1,7 @@
 # Feature Specification: Reserva de Asientos de una Función
 
+> **Nota (feature 006):** el mecanismo de identidad de este documento (usuario autenticado con rol `Customer`, identificado por el claim `sub`) fue reemplazado por el **comprador invitado con email verificado**. El comportamiento de negocio de la reserva no cambia. Ver [feature 006](../006-comprador-invitado-email/spec.md).
+
 **Feature Branch**: `004-reserva-asientos-funcion`
 
 **Created**: 2026-10-27
