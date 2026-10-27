@@ -1,3 +1,4 @@
+using CinemaSystemRandomPlay.Api.Compartido;
 using CinemaSystemRandomPlay.Application.Reservas.Dtos;
 
 namespace CinemaSystemRandomPlay.Api.Modulos.Reservas.Contracts;
@@ -9,11 +10,14 @@ public record ReservaResponse(
     DateTimeOffset VenceEn,
     DateTimeOffset? CanceladaEn,
     IReadOnlyList<AsientoResponse> Asientos,
-    FuncionReservaResponse Funcion)
+    FuncionReservaResponse Funcion,
+    DineroResponse PrecioUnitario,
+    DineroResponse Total)
 {
     public static ReservaResponse DesdeDto(ReservaDto dto) =>
         new(dto.Id, dto.Estado.ToString(), dto.CreadaEn, dto.VenceEn, dto.CanceladaEn,
-            dto.Asientos.Select(AsientoResponse.DesdeDto).ToList(), FuncionReservaResponse.DesdeDto(dto.Funcion));
+            dto.Asientos.Select(AsientoResponse.DesdeDto).ToList(), FuncionReservaResponse.DesdeDto(dto.Funcion),
+            DineroResponse.DesdeDto(dto.PrecioUnitario), DineroResponse.DesdeDto(dto.Total));
 }
 
 public record AsientoResponse(string Fila, int Numero)

@@ -1,3 +1,4 @@
+using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Domain.Reservas;
 
@@ -10,7 +11,7 @@ internal static class ReservaFactory
     public static Funcion CrearFuncion(DateTimeOffset? inicio = null, params FilaSala[] filas)
     {
         var sala = new Sala(Guid.NewGuid(), Guid.NewGuid(), "Sala 1", filas.Length > 0 ? filas : [new FilaSala('A', 10), new FilaSala('B', 12), new FilaSala('C', 12)]);
-        var funcion = new Funcion(Guid.NewGuid(), Guid.NewGuid(), sala.Id, inicio ?? Ahora.AddHours(3));
+        var funcion = new Funcion(Guid.NewGuid(), Guid.NewGuid(), sala.Id, inicio ?? Ahora.AddHours(3), Dinero.Ars(5500m));
         typeof(Funcion).GetProperty(nameof(Funcion.Sala))!.SetValue(funcion, sala);
         return funcion;
     }

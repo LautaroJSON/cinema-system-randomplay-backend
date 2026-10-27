@@ -21,7 +21,7 @@ public class ListarMisReservasQueryHandlerTests
     private static ReservaLecturaDto Lectura(DateTimeOffset creadaEn, DateTimeOffset venceEn, EstadoReserva estado = EstadoReserva.PendienteDePago, Guid? id = null) =>
         new(id ?? Guid.NewGuid(), estado, creadaEn, venceEn, estado == EstadoReserva.Cancelada ? creadaEn.AddMinutes(1) : null,
             [new Asiento('B', 2), new Asiento('A', 9)], Guid.NewGuid(), Ahora.AddHours(3), Guid.NewGuid(), "Interstellar",
-            Guid.NewGuid(), "Sucursal Centro", Guid.NewGuid(), "Sala 1");
+            Guid.NewGuid(), "Sucursal Centro", Guid.NewGuid(), "Sala 1", Dinero.Ars(5500m));
 
     [Fact]
     public async Task Listar_OrdenaDeLaMasRecienteALaMasAntigua()

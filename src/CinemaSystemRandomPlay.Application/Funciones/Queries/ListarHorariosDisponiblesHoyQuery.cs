@@ -1,3 +1,4 @@
+using CinemaSystemRandomPlay.Application.Compartido.Dtos;
 using CinemaSystemRandomPlay.Application.Funciones.Dtos;
 using CinemaSystemRandomPlay.Domain.Catalogo;
 using CinemaSystemRandomPlay.Domain.Compartido;
@@ -38,7 +39,7 @@ public class ListarHorariosDisponiblesHoyQueryHandler
         var funciones = await _funcionRepository.ListarHorariosDisponibles(pelicula.Id, query.SucursalId, hoy, ahora, cancellationToken);
 
         return funciones
-            .Select(f => new HorarioFuncionDto(f.Id, f.FechaHoraInicio, f.SalaId, f.Sala!.Nombre))
+            .Select(f => new HorarioFuncionDto(f.Id, f.FechaHoraInicio, f.SalaId, f.Sala!.Nombre, DineroDto.DesdeDominio(f.PrecioEntrada)))
             .ToList();
     }
 }

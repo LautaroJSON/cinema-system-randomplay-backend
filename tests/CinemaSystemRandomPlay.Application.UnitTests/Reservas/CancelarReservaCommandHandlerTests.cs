@@ -35,7 +35,7 @@ public class CancelarReservaCommandHandlerTests
 
     private static ReservaLecturaDto LecturaCancelada(Reserva r) =>
         new(r.Id, EstadoReserva.Cancelada, r.CreadaEn, r.VenceEn, Ahora, r.Asientos, r.FuncionId, Ahora.AddHours(3),
-            Guid.NewGuid(), "Interstellar", Guid.NewGuid(), "Sucursal Centro", Guid.NewGuid(), "Sala 1");
+            Guid.NewGuid(), "Interstellar", Guid.NewGuid(), "Sucursal Centro", Guid.NewGuid(), "Sala 1", r.PrecioUnitario);
 
     [Fact]
     public async Task Handle_ReservaPropiaVigente_LaCancelaYRegistraElEvento()

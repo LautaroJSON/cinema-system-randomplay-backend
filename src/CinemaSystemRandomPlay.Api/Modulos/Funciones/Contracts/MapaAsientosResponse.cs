@@ -1,3 +1,4 @@
+using CinemaSystemRandomPlay.Api.Compartido;
 using CinemaSystemRandomPlay.Application.Funciones.Dtos;
 
 namespace CinemaSystemRandomPlay.Api.Modulos.Funciones.Contracts;
@@ -13,11 +14,13 @@ public record MapaAsientosResponse(
     string SalaNombre,
     int TotalAsientos,
     int CantidadDisponibles,
-    IReadOnlyList<FilaMapaResponse> Filas)
+    IReadOnlyList<FilaMapaResponse> Filas,
+    DineroResponse PrecioEntrada)
 {
     public static MapaAsientosResponse DesdeDto(MapaAsientosDto dto) =>
         new(dto.FuncionId, dto.HoraInicio, dto.PeliculaId, dto.PeliculaTitulo, dto.SucursalId, dto.SucursalNombre,
-            dto.SalaId, dto.SalaNombre, dto.TotalAsientos, dto.CantidadDisponibles, dto.Filas.Select(FilaMapaResponse.DesdeDto).ToList());
+            dto.SalaId, dto.SalaNombre, dto.TotalAsientos, dto.CantidadDisponibles, dto.Filas.Select(FilaMapaResponse.DesdeDto).ToList(),
+            DineroResponse.DesdeDto(dto.PrecioEntrada));
 }
 
 public record FilaMapaResponse(

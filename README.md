@@ -43,6 +43,7 @@ proyecto — un único monolito modular, sin microservicios.
 | Horarios por Sucursal — Funciones de Hoy | [specs/002-horarios-sucursal-hoy](specs/002-horarios-sucursal-hoy/spec.md) | ✅ Sucursales con funciones hoy y horarios disponibles por Sucursal |
 | Mapa de Asientos de una Función | [specs/003-mapa-asientos-funcion](specs/003-mapa-asientos-funcion/spec.md) | ✅ Disposición de la Sala (filas y asientos) y asientos disponibles de una función |
 | Reserva de Asientos de una Función | [specs/004-reserva-asientos-funcion](specs/004-reserva-asientos-funcion/spec.md) | ✅ Reserva de 1 a 10 asientos con retención de 10 minutos, mis reservas, cancelación y mapa que descuenta lo retenido |
+| Precios de las Funciones | [specs/005-precios-funciones](specs/005-precios-funciones/spec.md) | ✅ Precio por entrada (ARS) en horarios y mapa; la reserva congela el precio unitario e informa su total |
 
 Las tres primeras son features de **solo lectura y acceso público**. La cuarta es la primera que
 modifica estado y exige autenticación (JWT bearer, rol `Customer`). `Sucursal`,
@@ -150,13 +151,23 @@ interface MapaAsientosResponse {
   salaNombre: string;
   totalAsientos: number;
   cantidadDisponibles: number;  // 0 => función agotada
+  precioEntrada: Dinero;        // precio por entrada de la función
   filas: {
     fila: string;               // "A".."Z", en orden alfabético
     cantidadAsientos: number;   // los asientos de la fila son 1..cantidadAsientos
     asientosDisponibles: number[]; // lo que no está acá, está ocupado
   }[];
 }
+
+// Montos: texto con exactamente 2 decimales (nunca un número), moneda ISO 4217.
+interface Dinero {
+  monto: string;                // "5500.00"
+  moneda: string;               // "ARS"
+}
 ```
+
+Los horarios de hoy informan `precioEntrada` por función, y las reservas (crear, listar y consultar)
+informan `precioUnitario` y `total` (`precioUnitario × asientos`), congelados al crear la reserva.
 
 ## Configuración de reservas y autenticación
 

@@ -1,3 +1,4 @@
+using CinemaSystemRandomPlay.Application.Compartido.Dtos;
 using CinemaSystemRandomPlay.Application.Funciones.Dtos;
 using CinemaSystemRandomPlay.Application.Funciones.Ports;
 using CinemaSystemRandomPlay.Domain.Catalogo;
@@ -73,7 +74,8 @@ public class ObtenerMapaAsientosQueryHandler
             sala.Nombre,
             sala.TotalAsientos,
             filas.Sum(f => f.AsientosDisponibles.Count),
-            filas);
+            filas,
+            DineroDto.DesdeDominio(funcion.PrecioEntrada));
 
         return ObtenerMapaAsientosResultado.Ok(mapa);
     }

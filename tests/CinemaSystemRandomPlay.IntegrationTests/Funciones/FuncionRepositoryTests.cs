@@ -1,4 +1,5 @@
 using CinemaSystemRandomPlay.Domain.Catalogo;
+using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Infrastructure.Persistence;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Funciones;
@@ -48,13 +49,13 @@ public class FuncionRepositoryTests : IAsyncLifetime
         var pelicula = await CrearPelicula();
 
         // Sucursal Centro: función hoy, todavía no pasó -> debe aparecer
-        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, Ahora.AddHours(2)));
+        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, Ahora.AddHours(2), Dinero.Ars(5500m)));
 
         // Sucursal Norte: función hoy, pero ya pasó -> NO debe aparecer
-        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaNorte1Id, Ahora.AddHours(-1)));
+        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaNorte1Id, Ahora.AddHours(-1), Dinero.Ars(5500m)));
 
         // Sucursal Sur: función programada para mañana, no hoy -> NO debe aparecer
-        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaSur1Id, Ahora.AddDays(1)));
+        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaSur1Id, Ahora.AddDays(1), Dinero.Ars(5500m)));
 
         await _dbContext.SaveChangesAsync();
 
@@ -83,8 +84,8 @@ public class FuncionRepositoryTests : IAsyncLifetime
     {
         var pelicula = await CrearPelicula();
 
-        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaNorte1Id, Ahora.AddHours(1)));
-        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, Ahora.AddHours(3)));
+        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaNorte1Id, Ahora.AddHours(1), Dinero.Ars(5500m)));
+        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, Ahora.AddHours(3), Dinero.Ars(5500m)));
         await _dbContext.SaveChangesAsync();
 
         var repository = new FuncionRepository(_dbContext);
@@ -100,7 +101,7 @@ public class FuncionRepositoryTests : IAsyncLifetime
     public async Task ExisteFuncionHoy_ConFuncionHoyEnEsaSucursal_DevuelveTrue()
     {
         var pelicula = await CrearPelicula();
-        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, Ahora.AddHours(-1)));
+        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, Ahora.AddHours(-1), Dinero.Ars(5500m)));
         await _dbContext.SaveChangesAsync();
 
         var repository = new FuncionRepository(_dbContext);
@@ -114,7 +115,7 @@ public class FuncionRepositoryTests : IAsyncLifetime
     public async Task ExisteFuncionHoy_SinNingunaFuncionHoyEnEsaSucursal_DevuelveFalse()
     {
         var pelicula = await CrearPelicula();
-        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaSur1Id, Ahora.AddDays(1)));
+        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaSur1Id, Ahora.AddDays(1), Dinero.Ars(5500m)));
         await _dbContext.SaveChangesAsync();
 
         var repository = new FuncionRepository(_dbContext);
@@ -129,9 +130,9 @@ public class FuncionRepositoryTests : IAsyncLifetime
     {
         var pelicula = await CrearPelicula();
 
-        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro2Id, Ahora.AddHours(5)));
-        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, Ahora.AddHours(1)));
-        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, Ahora.AddHours(-1))); // ya pasó
+        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro2Id, Ahora.AddHours(5), Dinero.Ars(5500m)));
+        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, Ahora.AddHours(1), Dinero.Ars(5500m)));
+        _dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, Ahora.AddHours(-1), Dinero.Ars(5500m))); // ya pasó
         await _dbContext.SaveChangesAsync();
 
         var repository = new FuncionRepository(_dbContext);
@@ -148,7 +149,7 @@ public class FuncionRepositoryTests : IAsyncLifetime
     public async Task ObtenerConSala_FuncionExistente_CargaSalaConFilasYSucursal()
     {
         var pelicula = await CrearPelicula();
-        var funcion = new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro2Id, Ahora.AddHours(2));
+        var funcion = new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro2Id, Ahora.AddHours(2), Dinero.Ars(5500m));
         _dbContext.Funciones.Add(funcion);
         await _dbContext.SaveChangesAsync();
         _dbContext.ChangeTracker.Clear();

@@ -94,7 +94,7 @@ public class MapaConReservasTests : IClassFixture<ReservasApiFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var cuerpo = await response.LeerJson();
         Assert.Equal(
-            ["funcionId", "horaInicio", "peliculaId", "peliculaTitulo", "sucursalId", "sucursalNombre", "salaId", "salaNombre", "totalAsientos", "cantidadDisponibles", "filas"],
+            ["funcionId", "horaInicio", "peliculaId", "peliculaTitulo", "sucursalId", "sucursalNombre", "salaId", "salaNombre", "totalAsientos", "cantidadDisponibles", "filas", "precioEntrada"],
             cuerpo.EnumerateObject().Select(p => p.Name));
     }
 }

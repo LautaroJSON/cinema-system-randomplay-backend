@@ -1,3 +1,4 @@
+using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Domain.Reservas;
 
@@ -21,7 +22,8 @@ public record ReservaLecturaDto(
     Guid SucursalId,
     string SucursalNombre,
     Guid SalaId,
-    string SalaNombre);
+    string SalaNombre,
+    Dinero PrecioUnitario);
 
 public interface IConsultaReservas
 {

@@ -1,3 +1,4 @@
+using CinemaSystemRandomPlay.Application.Compartido.Dtos;
 using CinemaSystemRandomPlay.Application.Compartido.Ports;
 using CinemaSystemRandomPlay.Application.Reservas.Dtos;
 using CinemaSystemRandomPlay.Domain.Catalogo;
@@ -121,7 +122,8 @@ public class ReservarAsientosCommandHandler
             var reserva = resultado.Reserva!;
 
             await _reservaRepository.Agregar(reserva, ct);
-            _outbox.Registrar(new ReservaCreada(reserva.Id, reserva.FuncionId, reserva.Asientos, reserva.VenceEn, ahora));
+            _outbox.Registrar(new ReservaCreada(reserva.Id, reserva.FuncionId, reserva.Asientos, reserva.VenceEn, ahora,
+                reserva.PrecioUnitario, reserva.Total));
 
             var sala = funcion.Sala;
 
@@ -133,7 +135,9 @@ public class ReservarAsientosCommandHandler
                 reserva.CanceladaEn,
                 ADtos(reserva.Asientos),
                 new FuncionReservaDto(funcion.Id, funcion.FechaHoraInicio, pelicula.Id, pelicula.Titulo,
-                    sala.SucursalId, sala.Sucursal?.Nombre ?? string.Empty, sala.Id, sala.Nombre)));
+                    sala.SucursalId, sala.Sucursal?.Nombre ?? string.Empty, sala.Id, sala.Nombre),
+                DineroDto.DesdeDominio(reserva.PrecioUnitario),
+                DineroDto.DesdeDominio(reserva.Total)));
         }, cancellationToken);
     }
 

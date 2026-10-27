@@ -1,4 +1,5 @@
 using CinemaSystemRandomPlay.Domain.Catalogo;
+using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Funciones;
 using Microsoft.EntityFrameworkCore;
@@ -41,9 +42,9 @@ public static class DevDataSeeder
             return;
 
         dbContext.Funciones.AddRange(
-            new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, ahora.AddHours(2)),
-            new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro2Id, ahora.AddHours(4)),
-            new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaNorte1Id, ahora.AddHours(1)));
+            new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, ahora.AddHours(2), Dinero.Ars(5500.00m)),
+            new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro2Id, ahora.AddHours(4), Dinero.Ars(7250.50m)),
+            new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaNorte1Id, ahora.AddHours(1), Dinero.Ars(6000.00m)));
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }

@@ -1,4 +1,5 @@
 using CinemaSystemRandomPlay.Application.Reservas.Ports;
+using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Reservas;
 using Microsoft.EntityFrameworkCore;
 
@@ -38,7 +39,7 @@ public class ConsultaReservas : IConsultaReservas
                join s in _dbContext.Salas on f.SalaId equals s.Id
                join su in _dbContext.Sucursales on s.SucursalId equals su.Id
                select new FilaReserva(r.Id, r.Estado, r.CreadaEn, r.VenceEn, r.CanceladaEn, r.FuncionId, f.FechaHoraInicio,
-                   p.Id, p.Titulo, su.Id, su.Nombre, s.Id, s.Nombre);
+                   p.Id, p.Titulo, su.Id, su.Nombre, s.Id, s.Nombre, r.PrecioUnitario);
     }
 
     private async Task<IReadOnlyList<ReservaLecturaDto>> ConAsientos(List<FilaReserva> filas, CancellationToken cancellationToken)
@@ -58,7 +59,7 @@ public class ConsultaReservas : IConsultaReservas
 
         return filas
             .Select(x => new ReservaLecturaDto(x.Id, x.Estado, x.CreadaEn, x.VenceEn, x.CanceladaEn, porReserva[x.Id].ToList(),
-                x.FuncionId, x.HoraInicio, x.PeliculaId, x.PeliculaTitulo, x.SucursalId, x.SucursalNombre, x.SalaId, x.SalaNombre))
+                x.FuncionId, x.HoraInicio, x.PeliculaId, x.PeliculaTitulo, x.SucursalId, x.SucursalNombre, x.SalaId, x.SalaNombre, x.PrecioUnitario))
             .ToList();
     }
 
@@ -75,5 +76,6 @@ public class ConsultaReservas : IConsultaReservas
         Guid SucursalId,
         string SucursalNombre,
         Guid SalaId,
-        string SalaNombre);
+        string SalaNombre,
+        Dinero PrecioUnitario);
 }

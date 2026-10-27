@@ -1,3 +1,4 @@
+using CinemaSystemRandomPlay.Application.Compartido.Dtos;
 using CinemaSystemRandomPlay.Application.Reservas.Ports;
 using CinemaSystemRandomPlay.Domain.Reservas;
 
@@ -20,7 +21,9 @@ public record ReservaDto(
     DateTimeOffset VenceEn,
     DateTimeOffset? CanceladaEn,
     IReadOnlyList<AsientoPedidoDto> Asientos,
-    FuncionReservaDto Funcion)
+    FuncionReservaDto Funcion,
+    DineroDto PrecioUnitario,
+    DineroDto Total)
 {
     public static ReservaDto DesdeLectura(ReservaLecturaDto lectura, DateTimeOffset ahora) =>
         new(lectura.Id,
@@ -30,5 +33,7 @@ public record ReservaDto(
             lectura.CanceladaEn,
             lectura.Asientos.OrderBy(a => a.Fila).ThenBy(a => a.Numero).Select(a => new AsientoPedidoDto(a.Fila.ToString(), a.Numero)).ToList(),
             new FuncionReservaDto(lectura.FuncionId, lectura.HoraInicio, lectura.PeliculaId, lectura.PeliculaTitulo,
-                lectura.SucursalId, lectura.SucursalNombre, lectura.SalaId, lectura.SalaNombre));
+                lectura.SucursalId, lectura.SucursalNombre, lectura.SalaId, lectura.SalaNombre),
+            DineroDto.DesdeDominio(lectura.PrecioUnitario),
+            DineroDto.DesdeDominio(lectura.PrecioUnitario.Multiplicar(lectura.Asientos.Count)));
 }

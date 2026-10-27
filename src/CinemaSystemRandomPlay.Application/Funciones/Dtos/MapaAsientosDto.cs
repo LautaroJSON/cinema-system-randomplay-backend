@@ -1,3 +1,5 @@
+using CinemaSystemRandomPlay.Application.Compartido.Dtos;
+
 namespace CinemaSystemRandomPlay.Application.Funciones.Dtos;
 
 public record MapaAsientosDto(
@@ -11,7 +13,8 @@ public record MapaAsientosDto(
     string SalaNombre,
     int TotalAsientos,
     int CantidadDisponibles,
-    IReadOnlyList<FilaMapaDto> Filas);
+    IReadOnlyList<FilaMapaDto> Filas,
+    DineroDto PrecioEntrada);
 
 public record FilaMapaDto(
     string Fila,

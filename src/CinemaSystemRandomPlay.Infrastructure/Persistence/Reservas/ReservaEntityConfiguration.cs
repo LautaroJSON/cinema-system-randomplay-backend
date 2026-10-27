@@ -39,6 +39,14 @@ public class ReservaEntityConfiguration : IEntityTypeConfiguration<Reserva>
         builder.Property(r => r.CanceladaEn)
             .HasConversion(v => v.HasValue ? v.Value.ToUniversalTime() : (DateTimeOffset?)null, v => v);
 
+        builder.ComplexProperty(r => r.PrecioUnitario, precio =>
+        {
+            precio.Property(d => d.Monto).HasColumnName("PrecioUnitario_Monto").HasColumnType("numeric(12,2)").IsRequired();
+            precio.Property(d => d.Moneda).HasColumnName("PrecioUnitario_Moneda").HasConversion<string>().HasMaxLength(3).IsRequired();
+        });
+
+        builder.Ignore(r => r.Total);
+
         builder.HasOne<Funcion>()
             .WithMany()
             .HasForeignKey(r => r.FuncionId)

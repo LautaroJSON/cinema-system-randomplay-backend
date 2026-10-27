@@ -421,4 +421,93 @@ public class ReservasControllerTests : IClassFixture<ReservasApiFactory>
         Assert.Equal(HttpStatusCode.Unauthorized, sinToken.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, sinRol.StatusCode);
     }
+
+    // ---------- Precios (feature 005) ----------
+
+    private static void AssertMonto(JsonElement reserva, string propiedad, string monto)
+    {
+        var dinero = reserva.GetProperty(propiedad);
+        Assert.Equal(JsonValueKind.String, dinero.GetProperty("monto").ValueKind);
+        Assert.Equal(monto, dinero.GetProperty("monto").GetString());
+        Assert.Equal("ARS", dinero.GetProperty("moneda").GetString());
+    }
+
+    [Fact]
+    public async Task Post_InformaElPrecioUnitarioYElTotal()
+    {
+        var funcionId = await _factory.SembrarFuncion(Sala, TimeSpan.FromHours(3));
+
+        var reserva = await (await Ana().Reservar(funcionId, "C5", "C6", "C7")).LeerJson();
+
+        AssertMonto(reserva, "precioUnitario", "5500.00");
+        AssertMonto(reserva, "total", "16500.00");
+    }
+
+    [Fact]
+    public async Task Post_ConPrecioConCentavos_SePersisteYSeInformaExacto()
+    {
+        var funcionId = await _factory.SembrarFuncion(Sala, TimeSpan.FromHours(3), precio: 7250.50m);
+
+        var id = await Ana().ReservarOk(funcionId, "A1", "A2", "A3", "A4");
+        var reserva = await (await Ana().GetAsync($"/api/reservas/{id}")).LeerJson();
+
+        AssertMonto(reserva, "precioUnitario", "7250.50");
+        AssertMonto(reserva, "total", "29002.00");
+    }
+
+    [Fact]
+    public async Task Reserva_ConservaElPrecioSiCambiaElDeLaFuncion()
+    {
+        var funcionId = await _factory.SembrarFuncion(Sala, TimeSpan.FromHours(3));
+        var primera = await Ana().ReservarOk(funcionId, "C5", "C6");
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
+            await dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"""UPDATE "Funciones" SET "PrecioEntrada_Monto" = 6000.00 WHERE "Id" = {funcionId}""");
+        }
+
+        var original = await (await Ana().GetAsync($"/api/reservas/{primera}")).LeerJson();
+        AssertMonto(original, "precioUnitario", "5500.00");
+        AssertMonto(original, "total", "11000.00");
+
+        var nueva = await (await Ana().Reservar(funcionId, "D1", "D2")).LeerJson();
+        AssertMonto(nueva, "precioUnitario", "6000.00");
+        AssertMonto(nueva, "total", "12000.00");
+    }
+
+    [Fact]
+    public async Task GetReservas_InformaLosMontosDeCadaReservaTambienLasCanceladas()
+    {
+        var funcionA = await _factory.SembrarFuncion(Sala, TimeSpan.FromHours(3));
+        var funcionB = await _factory.AgregarFuncion(Sala, TimeSpan.FromHours(4), precio: 7250.50m);
+        var dosAsientos = await Ana().ReservarOk(funcionA, "A1", "A2");
+        await Ana().ReservarOk(funcionB, "A1", "A2", "A3", "A4");
+        await Ana().PostAsync($"/api/reservas/{dosAsientos}/cancelacion", content: null);
+
+        var lista = await (await Ana().GetAsync("/api/reservas")).LeerJson();
+
+        var porId = lista.EnumerateArray().ToDictionary(r => r.GetProperty("id").GetGuid());
+        Assert.Equal(2, porId.Count);
+        var cancelada = porId[dosAsientos];
+        Assert.Equal("Cancelada", cancelada.GetProperty("estado").GetString());
+        AssertMonto(cancelada, "precioUnitario", "5500.00");
+        AssertMonto(cancelada, "total", "11000.00");
+        var otra = porId.Values.Single(r => r.GetProperty("id").GetGuid() != dosAsientos);
+        AssertMonto(otra, "precioUnitario", "7250.50");
+        AssertMonto(otra, "total", "29002.00");
+    }
+
+    [Fact]
+    public async Task Cancelar_ConservaLosMontos()
+    {
+        var funcionId = await _factory.SembrarFuncion(Sala, TimeSpan.FromHours(3));
+        var id = await Ana().ReservarOk(funcionId, "C5", "C6");
+
+        var reserva = await (await Ana().PostAsync($"/api/reservas/{id}/cancelacion", content: null)).LeerJson();
+
+        AssertMonto(reserva, "precioUnitario", "5500.00");
+        AssertMonto(reserva, "total", "11000.00");
+    }
 }

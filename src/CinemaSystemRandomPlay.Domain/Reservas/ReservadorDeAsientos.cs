@@ -62,7 +62,7 @@ public class ReservadorDeAsientos
 
         var venceEn = Minimo(ahora.AddMinutes(reglas.MinutosRetencion), funcion.FechaHoraInicio);
 
-        return ResultadoReserva.Ok(Reserva.Crear(Guid.NewGuid(), funcion.Id, clienteId, pedidos, ahora, venceEn, reglas.MaximoAsientosPorCliente));
+        return ResultadoReserva.Ok(Reserva.Crear(Guid.NewGuid(), funcion.Id, clienteId, pedidos, funcion.PrecioEntrada, ahora, venceEn, reglas.MaximoAsientosPorCliente));
     }
 
     private static IReadOnlyList<Asiento> Ordenados(IEnumerable<Asiento> asientos) =>

@@ -14,6 +14,8 @@ public class Reserva
     public DateTimeOffset CreadaEn { get; private set; }
     public DateTimeOffset VenceEn { get; private set; }
     public DateTimeOffset? CanceladaEn { get; private set; }
+    public Dinero PrecioUnitario { get; private set; } = null!;
+    public Dinero Total => PrecioUnitario.Multiplicar(_asientos.Count);
 
     public IReadOnlyList<Asiento> Asientos => _asientos.OrderBy(a => a.Fila).ThenBy(a => a.Numero).ToList();
 
@@ -22,7 +24,7 @@ public class Reserva
     }
 
     internal static Reserva Crear(Guid id, Guid funcionId, string clienteId, IReadOnlyList<Asiento> asientos,
-        DateTimeOffset creadaEn, DateTimeOffset venceEn, int maximoAsientos)
+        Dinero precioUnitario, DateTimeOffset creadaEn, DateTimeOffset venceEn, int maximoAsientos)
     {
         if (funcionId == Guid.Empty)
             throw new DomainException("La Reserva debe tener una Funcion asociada.");
@@ -36,6 +38,9 @@ public class Reserva
         if (asientos.Distinct().Count() != asientos.Count)
             throw new DomainException("La Reserva no puede tener asientos repetidos.");
 
+        if (precioUnitario is null)
+            throw new DomainException("La Reserva debe tener un precio unitario.");
+
         var reserva = new Reserva
         {
             Id = id,
@@ -43,7 +48,8 @@ public class Reserva
             ClienteId = clienteId,
             Estado = EstadoReserva.PendienteDePago,
             CreadaEn = creadaEn,
-            VenceEn = venceEn
+            VenceEn = venceEn,
+            PrecioUnitario = precioUnitario
         };
         reserva._asientos.AddRange(asientos);
         return reserva;

@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using CinemaSystemRandomPlay.Api.Modulos.Funciones.Contracts;
 using CinemaSystemRandomPlay.Domain.Catalogo;
+using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Infrastructure.Persistence;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Funciones;
@@ -29,7 +30,7 @@ public class MapaAsientosControllerTests : IClassFixture<FuncionesApiFactory>
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
         var pelicula = new Pelicula(Guid.NewGuid(), "Interstellar", 169, Clasificacion.ATP, "Sinopsis", peliculaActiva);
-        var funcion = new Funcion(Guid.NewGuid(), pelicula.Id, salaId, DateTimeOffset.Now.Add(desdeAhora));
+        var funcion = new Funcion(Guid.NewGuid(), pelicula.Id, salaId, DateTimeOffset.Now.Add(desdeAhora), Dinero.Ars(5500m));
         dbContext.Peliculas.Add(pelicula);
         dbContext.Funciones.Add(funcion);
         await dbContext.SaveChangesAsync();
@@ -113,5 +114,20 @@ public class MapaAsientosControllerTests : IClassFixture<FuncionesApiFactory>
         var response = await _factory.CreateClient().GetAsync($"/api/funciones/{funcionId}/asientos");
 
         Assert.Equal(HttpStatusCode.Gone, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetAsientos_InformaElPrecioPorEntradaSinAutenticacion()
+    {
+        var funcionId = await CrearFuncion(SalaEntityConfiguration.SalaCentro2Id, TimeSpan.FromMinutes(10));
+
+        var response = await _factory.CreateClient().GetAsync($"/api/funciones/{funcionId}/asientos");
+
+        response.EnsureSuccessStatusCode();
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        var precio = json.GetProperty("precioEntrada");
+        Assert.Equal("5500.00", precio.GetProperty("monto").GetString());
+        Assert.Equal("ARS", precio.GetProperty("moneda").GetString());
+        Assert.Equal(70, json.GetProperty("totalAsientos").GetInt32());
     }
 }

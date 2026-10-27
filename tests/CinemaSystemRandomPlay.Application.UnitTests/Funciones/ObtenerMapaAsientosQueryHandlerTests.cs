@@ -39,7 +39,7 @@ public class ObtenerMapaAsientosQueryHandlerTests
         var sala = new Sala(Guid.NewGuid(), sucursal.Id, "Sala 2", filas);
         typeof(Sala).GetProperty(nameof(Sala.Sucursal))!.SetValue(sala, sucursal);
 
-        var funcion = new Funcion(Guid.NewGuid(), pelicula.Id, sala.Id, fechaHoraInicio);
+        var funcion = new Funcion(Guid.NewGuid(), pelicula.Id, sala.Id, fechaHoraInicio, Dinero.Ars(5500m));
         typeof(Funcion).GetProperty(nameof(Funcion.Sala))!.SetValue(funcion, sala);
         return funcion;
     }

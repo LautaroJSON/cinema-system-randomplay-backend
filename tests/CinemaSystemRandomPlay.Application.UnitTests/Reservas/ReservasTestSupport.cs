@@ -1,5 +1,6 @@
 using CinemaSystemRandomPlay.Application.Compartido.Ports;
 using CinemaSystemRandomPlay.Domain.Catalogo;
+using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
 
 namespace CinemaSystemRandomPlay.Application.UnitTests.Reservas;
@@ -14,7 +15,7 @@ internal static class ReservasTestSupport
         var sucursal = new Sucursal(Guid.NewGuid(), "Sucursal Centro");
         var sala = new Sala(Guid.NewGuid(), sucursal.Id, "Sala 1", [new FilaSala('A', 10), new FilaSala('B', 10)]);
         typeof(Sala).GetProperty(nameof(Sala.Sucursal))!.SetValue(sala, sucursal);
-        var funcion = new Funcion(Guid.NewGuid(), pelicula.Id, sala.Id, inicio ?? Ahora.AddHours(3));
+        var funcion = new Funcion(Guid.NewGuid(), pelicula.Id, sala.Id, inicio ?? Ahora.AddHours(3), Dinero.Ars(5500m));
         typeof(Funcion).GetProperty(nameof(Funcion.Sala))!.SetValue(funcion, sala);
         return (funcion, pelicula);
     }

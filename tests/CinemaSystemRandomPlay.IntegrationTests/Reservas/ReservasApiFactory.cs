@@ -99,19 +99,19 @@ public class ReservasApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     }
 
     /// <summary>Limpia los datos y siembra una película con una función que empieza a <paramref name="desdeAhora"/> del reloj de test.</summary>
-    public async Task<Guid> SembrarFuncion(Guid salaId, TimeSpan desdeAhora, bool peliculaActiva = true)
+    public async Task<Guid> SembrarFuncion(Guid salaId, TimeSpan desdeAhora, bool peliculaActiva = true, decimal precio = 5500m)
     {
         await LimpiarDatos();
-        return await AgregarFuncion(salaId, desdeAhora, peliculaActiva);
+        return await AgregarFuncion(salaId, desdeAhora, peliculaActiva, precio);
     }
 
     /// <summary>Agrega otra función (con su propia película) sin limpiar lo existente.</summary>
-    public async Task<Guid> AgregarFuncion(Guid salaId, TimeSpan desdeAhora, bool peliculaActiva = true)
+    public async Task<Guid> AgregarFuncion(Guid salaId, TimeSpan desdeAhora, bool peliculaActiva = true, decimal precio = 5500m)
     {
         using var scope = Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
         var pelicula = new Pelicula(Guid.NewGuid(), "Interstellar", 169, Clasificacion.ATP, "Sinopsis", peliculaActiva);
-        var funcion = new Funcion(Guid.NewGuid(), pelicula.Id, salaId, Reloj.Ahora.Add(desdeAhora));
+        var funcion = new Funcion(Guid.NewGuid(), pelicula.Id, salaId, Reloj.Ahora.Add(desdeAhora), Dinero.Ars(precio));
         dbContext.Peliculas.Add(pelicula);
         dbContext.Funciones.Add(funcion);
         await dbContext.SaveChangesAsync();

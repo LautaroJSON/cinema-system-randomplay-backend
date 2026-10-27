@@ -23,6 +23,12 @@ public class FuncionEntityConfiguration : IEntityTypeConfiguration<Funcion>
             .IsRequired()
             .HasConversion(v => v.ToUniversalTime(), v => v);
 
+        builder.ComplexProperty(f => f.PrecioEntrada, precio =>
+        {
+            precio.Property(d => d.Monto).HasColumnName("PrecioEntrada_Monto").HasColumnType("numeric(12,2)").IsRequired();
+            precio.Property(d => d.Moneda).HasColumnName("PrecioEntrada_Moneda").HasConversion<string>().HasMaxLength(3).IsRequired();
+        });
+
         builder.HasOne<Pelicula>()
             .WithMany()
             .HasForeignKey(f => f.PeliculaId)

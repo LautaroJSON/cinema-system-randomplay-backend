@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using CinemaSystemRandomPlay.Api.Modulos.Funciones.Contracts;
 using CinemaSystemRandomPlay.Domain.Catalogo;
+using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Infrastructure.Persistence;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Funciones;
@@ -31,7 +32,7 @@ public class FuncionesControllerTests : IClassFixture<FuncionesApiFactory>
             var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
             var pelicula = new Pelicula(Guid.NewGuid(), "Interstellar", 169, Clasificacion.ATP, "Sinopsis");
             dbContext.Peliculas.Add(pelicula);
-            dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, DateTimeOffset.Now.AddMinutes(5)));
+            dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, DateTimeOffset.Now.AddMinutes(5), Dinero.Ars(5500m)));
             await dbContext.SaveChangesAsync();
             peliculaId = pelicula.Id;
         }
@@ -110,8 +111,8 @@ public class FuncionesControllerTests : IClassFixture<FuncionesApiFactory>
             var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
             var pelicula = new Pelicula(Guid.NewGuid(), "Interstellar", 169, Clasificacion.ATP, "Sinopsis");
             dbContext.Peliculas.Add(pelicula);
-            dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro2Id, DateTimeOffset.Now.AddMinutes(6)));
-            dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, DateTimeOffset.Now.AddMinutes(3)));
+            dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro2Id, DateTimeOffset.Now.AddMinutes(6), Dinero.Ars(5500m)));
+            dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, DateTimeOffset.Now.AddMinutes(3), Dinero.Ars(5500m)));
             await dbContext.SaveChangesAsync();
             peliculaId = pelicula.Id;
         }
@@ -137,7 +138,7 @@ public class FuncionesControllerTests : IClassFixture<FuncionesApiFactory>
             var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
             var pelicula = new Pelicula(Guid.NewGuid(), "Interstellar", 169, Clasificacion.ATP, "Sinopsis");
             dbContext.Peliculas.Add(pelicula);
-            dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, DateTimeOffset.Now.AddMinutes(-2)));
+            dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, DateTimeOffset.Now.AddMinutes(-2), Dinero.Ars(5500m)));
             await dbContext.SaveChangesAsync();
             peliculaId = pelicula.Id;
         }
@@ -161,7 +162,7 @@ public class FuncionesControllerTests : IClassFixture<FuncionesApiFactory>
             var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
             var pelicula = new Pelicula(Guid.NewGuid(), "Interstellar", 169, Clasificacion.ATP, "Sinopsis");
             dbContext.Peliculas.Add(pelicula);
-            dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, DateTimeOffset.Now.AddMinutes(3)));
+            dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, DateTimeOffset.Now.AddMinutes(3), Dinero.Ars(5500m)));
             await dbContext.SaveChangesAsync();
             peliculaId = pelicula.Id;
         }
@@ -182,5 +183,31 @@ public class FuncionesControllerTests : IClassFixture<FuncionesApiFactory>
         var response = await client.GetAsync($"/api/funciones/peliculas/{Guid.NewGuid()}/sucursales/{SucursalEntityConfiguration.SucursalCentroId}/horarios-hoy");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetHorariosHoy_InformaElPrecioDeCadaFuncionComoTextoConDosDecimales()
+    {
+        await _factory.LimpiarPeliculasYFunciones();
+        Guid peliculaId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
+            var pelicula = new Pelicula(Guid.NewGuid(), "Interstellar", 169, Clasificacion.ATP, "Sinopsis");
+            dbContext.Peliculas.Add(pelicula);
+            dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro1Id, DateTimeOffset.Now.AddMinutes(3), Dinero.Ars(5500m)));
+            dbContext.Funciones.Add(new Funcion(Guid.NewGuid(), pelicula.Id, SalaEntityConfiguration.SalaCentro2Id, DateTimeOffset.Now.AddMinutes(6), Dinero.Ars(7250.50m)));
+            await dbContext.SaveChangesAsync();
+            peliculaId = pelicula.Id;
+        }
+
+        var response = await _factory.CreateClient().GetAsync($"/api/funciones/peliculas/{peliculaId}/sucursales/{SucursalEntityConfiguration.SucursalCentroId}/horarios-hoy");
+
+        response.EnsureSuccessStatusCode();
+        var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        var precios = json.EnumerateArray().Select(h => h.GetProperty("precioEntrada")).ToList();
+        Assert.Equal(["5500.00", "7250.50"], precios.Select(p => p.GetProperty("monto").GetString()));
+        Assert.All(precios, p => Assert.Equal("ARS", p.GetProperty("moneda").GetString()));
+        Assert.Equal(JsonValueKind.String, precios[0].GetProperty("monto").ValueKind);
     }
 }

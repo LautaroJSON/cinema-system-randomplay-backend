@@ -1,3 +1,4 @@
+using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Domain.Reservas;
 using static CinemaSystemRandomPlay.Domain.UnitTests.Reservas.ReservaFactory;
@@ -27,6 +28,17 @@ public class ReservadorDeAsientosTests
         Assert.Equal(Ahora, reserva.CreadaEn);
         Assert.Equal(Ahora.AddMinutes(10), reserva.VenceEn);
         Assert.Equal([new Asiento('C', 5), new Asiento('C', 6)], reserva.Asientos);
+    }
+
+    [Fact]
+    public void Reservar_CongelaElPrecioDeLaFuncionYCalculaElTotal()
+    {
+        var funcion = CrearFuncion();
+
+        var reserva = Reservar(funcion, [], "ana", new Asiento('C', 5), new Asiento('C', 6), new Asiento('C', 7)).Reserva!;
+
+        Assert.Equal(funcion.PrecioEntrada, reserva.PrecioUnitario);
+        Assert.Equal(Dinero.Ars(16500m), reserva.Total);
     }
 
     [Fact]
