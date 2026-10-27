@@ -136,4 +136,17 @@ public class SalaTests
         Assert.Equal(['A', 'B', 'C'], disponibles.Select(f => f.Letra));
         Assert.Equal([1, 3], disponibles[1].NumerosDisponibles);
     }
+
+    [Theory]
+    [InlineData('A', 1, true)]
+    [InlineData('A', 10, true)]
+    [InlineData('A', 11, false)]
+    [InlineData('B', 10, true)]
+    [InlineData('C', 1, false)]
+    public void Contiene_SoloAsientosDentroDeLaDisposicion(char fila, int numero, bool esperado)
+    {
+        var sala = new Sala(Guid.NewGuid(), Guid.NewGuid(), "Sala 1", FilasValidas);
+
+        Assert.Equal(esperado, sala.Contiene(new Asiento(fila, numero)));
+    }
 }

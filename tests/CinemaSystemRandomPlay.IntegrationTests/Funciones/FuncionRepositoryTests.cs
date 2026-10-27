@@ -3,22 +3,22 @@ using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Infrastructure.Persistence;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Funciones;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
+using CinemaSystemRandomPlay.IntegrationTests.Compartido;
 
 namespace CinemaSystemRandomPlay.IntegrationTests.Funciones;
 
 public class FuncionRepositoryTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
+    private readonly PostgresDePrueba _postgres = new();
 
     private CinemaDbContext _dbContext = null!;
 
     public async Task InitializeAsync()
     {
-        await _container.StartAsync();
+        await _postgres.Iniciar();
 
         var options = new DbContextOptionsBuilder<CinemaDbContext>()
-            .UseNpgsql(_container.GetConnectionString())
+            .UseNpgsql(_postgres.ConnectionString)
             .Options;
 
         _dbContext = new CinemaDbContext(options);
@@ -28,7 +28,7 @@ public class FuncionRepositoryTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _dbContext.DisposeAsync();
-        await _container.DisposeAsync();
+        await _postgres.DisposeAsync();
     }
 
     private static readonly DateTimeOffset Ahora = new(2026, 9, 21, 15, 0, 0, TimeSpan.FromHours(-3));

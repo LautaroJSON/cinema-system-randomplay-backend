@@ -158,6 +158,69 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Reservas.Reserva", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CanceladaEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ClienteId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTimeOffset>("CreadaEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("FuncionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("VenceEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClienteId", "CreadaEn");
+
+                    b.HasIndex("FuncionId", "Estado", "VenceEn");
+
+                    b.ToTable("Reservas", (string)null);
+                });
+
+            modelBuilder.Entity("CinemaSystemRandomPlay.Infrastructure.Persistence.Outbox.OutboxMensaje", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("OcurridoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset?>("ProcesadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProcesadoEn", "OcurridoEn");
+
+                    b.ToTable("OutboxMensajes", (string)null);
+                });
+
             modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Funciones.Funcion", b =>
                 {
                     b.HasOne("CinemaSystemRandomPlay.Domain.Catalogo.Pelicula", null)
@@ -381,6 +444,36 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
                     b.Navigation("Filas");
 
                     b.Navigation("Sucursal");
+                });
+
+            modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Reservas.Reserva", b =>
+                {
+                    b.HasOne("CinemaSystemRandomPlay.Domain.Funciones.Funcion", null)
+                        .WithMany()
+                        .HasForeignKey("FuncionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsMany("CinemaSystemRandomPlay.Domain.Funciones.Asiento", "Asientos", b1 =>
+                        {
+                            b1.Property<Guid>("ReservaId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<char>("Fila")
+                                .HasColumnType("character(1)");
+
+                            b1.Property<int>("Numero")
+                                .HasColumnType("integer");
+
+                            b1.HasKey("ReservaId", "Fila", "Numero");
+
+                            b1.ToTable("ReservaAsientos", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("ReservaId");
+                        });
+
+                    b.Navigation("Asientos");
                 });
 #pragma warning restore 612, 618
         }

@@ -65,6 +65,15 @@ public class FuncionRepository : IFuncionRepository
             .FirstOrDefaultAsync(f => f.Id == funcionId, cancellationToken);
     }
 
+    public async Task<Funcion?> ObtenerConSalaBloqueando(Guid funcionId, CancellationToken cancellationToken = default)
+    {
+        // Serializa los pedidos de esa función hasta el fin de la transacción (ver research.md, Decisión 2).
+        await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM \"Funciones\" WHERE \"Id\" = {funcionId} FOR UPDATE", cancellationToken);
+
+        return await ObtenerConSala(funcionId, cancellationToken);
+    }
+
     private static DateTimeOffset InicioDelDia(DateOnly dia)
     {
         var fecha = dia.ToDateTime(TimeOnly.MinValue);

@@ -4,13 +4,13 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
+using CinemaSystemRandomPlay.IntegrationTests.Compartido;
 
 namespace CinemaSystemRandomPlay.IntegrationTests.Catalogo;
 
 public class CatalogoApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
+    private readonly PostgresDePrueba _postgres = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -22,14 +22,14 @@ public class CatalogoApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:CinemaDb"] = _container.GetConnectionString()
+                ["ConnectionStrings:CinemaDb"] = _postgres.ConnectionString
             });
         });
     }
 
     public async Task InitializeAsync()
     {
-        await _container.StartAsync();
+        await _postgres.Iniciar();
 
         using var scope = Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
@@ -39,7 +39,7 @@ public class CatalogoApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     async Task IAsyncLifetime.DisposeAsync()
     {
         await base.DisposeAsync();
-        await _container.DisposeAsync();
+        await _postgres.DisposeAsync();
     }
 
     public async Task LimpiarPeliculas()

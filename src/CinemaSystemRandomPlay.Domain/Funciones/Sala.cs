@@ -45,6 +45,9 @@ public class Sala
         _filas.AddRange(listaFilas);
     }
 
+    public bool Contiene(Asiento asiento) =>
+        _filas.Any(f => f.Letra == asiento.Fila && asiento.Numero <= f.CantidadAsientos);
+
     /// <summary>
     /// Devuelve, por cada fila en orden alfabético, los números de asiento que no están ocupados.
     /// Los ocupados que no pertenecen a esta Sala se ignoran.

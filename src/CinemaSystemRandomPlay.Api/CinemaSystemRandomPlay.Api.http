@@ -15,3 +15,33 @@ Accept: application/json
 ### Mapa de asientos de una función: reemplazá el id por un funcionId de /horarios-hoy
 GET {{CinemaSystemRandomPlay.Api_HostAddress}}/api/funciones/00000000-0000-0000-0000-000000000000/asientos
 Accept: application/json
+
+### Reservas — requieren un token con rol Customer:
+###   dotnet user-jwts create --project src/CinemaSystemRandomPlay.Api --name cliente-ana --role Customer
+@token = pegá-acá-el-token
+
+### Reservar asientos de una función
+POST {{CinemaSystemRandomPlay.Api_HostAddress}}/api/funciones/00000000-0000-0000-0000-000000000000/reservas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "asientos": [
+    { "fila": "C", "numero": 5 },
+    { "fila": "C", "numero": 6 }
+  ]
+}
+
+### Mis reservas
+GET {{CinemaSystemRandomPlay.Api_HostAddress}}/api/reservas
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### Una reserva propia — reemplazá el id
+GET {{CinemaSystemRandomPlay.Api_HostAddress}}/api/reservas/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### Cancelar una reserva propia — reemplazá el id
+POST {{CinemaSystemRandomPlay.Api_HostAddress}}/api/reservas/00000000-0000-0000-0000-000000000000/cancelacion
+Authorization: Bearer {{token}}

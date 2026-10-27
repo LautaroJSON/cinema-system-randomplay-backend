@@ -42,8 +42,10 @@ proyecto — un único monolito modular, sin microservicios.
 | Catálogo de Películas | [specs/001-catalogo-peliculas](specs/001-catalogo-peliculas/spec.md) | ✅ Listado, filtro por título y detalle de películas activas |
 | Horarios por Sucursal — Funciones de Hoy | [specs/002-horarios-sucursal-hoy](specs/002-horarios-sucursal-hoy/spec.md) | ✅ Sucursales con funciones hoy y horarios disponibles por Sucursal |
 | Mapa de Asientos de una Función | [specs/003-mapa-asientos-funcion](specs/003-mapa-asientos-funcion/spec.md) | ✅ Disposición de la Sala (filas y asientos) y asientos disponibles de una función |
+| Reserva de Asientos de una Función | [specs/004-reserva-asientos-funcion](specs/004-reserva-asientos-funcion/spec.md) | ✅ Reserva de 1 a 10 asientos con retención de 10 minutos, mis reservas, cancelación y mapa que descuenta lo retenido |
 
-Las tres son features de **solo lectura y acceso público** (sin autenticación). `Sucursal`,
+Las tres primeras son features de **solo lectura y acceso público**. La cuarta es la primera que
+modifica estado y exige autenticación (JWT bearer, rol `Customer`). `Sucursal`,
 `Sala` (con su disposición de asientos) y `Funcion` todavía no tienen alta ni administración vía
 API: sus datos se cargan sembrados directamente en la base de datos (ver
 [Datos de desarrollo](#datos-de-desarrollo) más abajo).
@@ -56,8 +58,11 @@ API: sus datos se cargan sembrados directamente en la base de datos (ver
 4. **Horarios de hoy**: `GET /api/funciones/peliculas/{peliculaId}/sucursales/{sucursalId}/horarios-hoy` → elige un horario (`funcionId`).
 5. **Mapa de asientos**: `GET /api/funciones/{funcionId}/asientos` → ve qué asientos están disponibles.
 
-El próximo paso del flujo es la **reserva de asientos** (feature pendiente), que exigirá
-autenticación y será la primera feature que modifique estado.
+6. **Reservar** (autenticado, rol `Customer`): `POST /api/funciones/{funcionId}/reservas` → retiene los asientos
+   hasta `min(creación + 10 min, inicio de la función)`.
+7. **Mis reservas / cancelar**: `GET /api/reservas`, `GET /api/reservas/{id}`, `POST /api/reservas/{id}/cancelacion`.
+
+El próximo paso del flujo es el **pago** de la reserva (feature pendiente).
 
 ## Cómo levantar el sistema
 
@@ -104,7 +109,9 @@ es fijo: `88888888-0000-0000-0000-000000000001`.
 
 ## Endpoints
 
-Todos los endpoints listados son de acceso público (`[AllowAnonymous]` explícito).
+Los endpoints de catálogo, horarios y mapa son de acceso público (`[AllowAnonymous]` explícito). Los de
+reservas exigen `Authorization: Bearer <jwt>` con el rol `Customer`; un endpoint sin política declarada
+exige usuario autenticado (fallback cerrado).
 
 | Método | Ruta | Descripción |
 |---|---|---|
@@ -112,7 +119,11 @@ Todos los endpoints listados son de acceso público (`[AllowAnonymous]` explíci
 | `GET` | `/api/catalogo/peliculas/{id}` | Detalle de una película activa (`404` si no existe o está inactiva) |
 | `GET` | `/api/funciones/peliculas/{peliculaId}/sucursales-hoy` | Sucursales con al menos una función hoy para esa película |
 | `GET` | `/api/funciones/peliculas/{peliculaId}/sucursales/{sucursalId}/horarios-hoy` | Horarios de hoy disponibles en esa Sucursal |
-| `GET` | `/api/funciones/{funcionId}/asientos` | Mapa de asientos de una función: filas de la Sala y asientos disponibles (`404` si no existe, `410` si ya comenzó) |
+| `GET` | `/api/funciones/{funcionId}/asientos` | Mapa de asientos de una función: filas de la Sala y asientos disponibles, sin los retenidos por reservas vigentes (`404` si no existe, `410` si ya comenzó) |
+| `POST` | `/api/funciones/{funcionId}/reservas` | 🔒 `Customer`. Reserva 1 a 10 asientos (todo o nada). `201`, o `400`/`404`/`409`/`410`/`422` con `codigo` |
+| `GET` | `/api/reservas` | 🔒 `Customer`. Reservas del Cliente, de la más reciente a la más antigua |
+| `GET` | `/api/reservas/{reservaId}` | 🔒 `Customer`. Una reserva propia (`404` si no existe o es ajena) |
+| `POST` | `/api/reservas/{reservaId}/cancelacion` | 🔒 `Customer`. Cancela una reserva propia pendiente y vigente (`409 reserva-no-cancelable` si no) |
 
 En el mapa de asientos solo se envían los asientos **disponibles**. Todo asiento de la fila (de 1 a
 `cantidadAsientos`) que no figure en `asientosDisponibles` está ocupado, y el front debe mostrarlo
@@ -121,7 +132,8 @@ como tal.
 Contratos completos, incluyendo códigos de error y ejemplos de body, en
 [`specs/001-catalogo-peliculas/contracts`](specs/001-catalogo-peliculas/contracts/catalogo-api.md),
 [`specs/002-horarios-sucursal-hoy/contracts`](specs/002-horarios-sucursal-hoy/contracts/funciones-api.md)
-y [`specs/003-mapa-asientos-funcion/contracts`](specs/003-mapa-asientos-funcion/contracts/mapa-asientos-api.md).
+[`specs/003-mapa-asientos-funcion/contracts`](specs/003-mapa-asientos-funcion/contracts/mapa-asientos-api.md)
+y [`specs/004-reserva-asientos-funcion/contracts`](specs/004-reserva-asientos-funcion/contracts/reservas-api.md).
 En `Development` también está disponible el explorador OpenAPI en `/openapi/v1.json`.
 
 ### Forma de la respuesta del mapa de asientos
@@ -146,13 +158,24 @@ interface MapaAsientosResponse {
 }
 ```
 
+## Configuración de reservas y autenticación
+
+- `Reservas:MinutosRetencion` (10) y `Reservas:MaximoAsientosPorCliente` (10) en `appsettings.json`.
+- La API valida JWT con la configuración estándar `Authentication:Schemes:Bearer` (`Authority`,
+  `ValidAudiences`, `ValidIssuer`). `Autenticacion:ClaimRoles` (por defecto `roles`) indica el claim con los
+  roles; el Cliente es el claim `sub`.
+- En desarrollo se pueden emitir tokens locales con
+  `dotnet user-jwts create --project src/CinemaSystemRandomPlay.Api --name cliente-ana --role Customer`.
+
 ## Deuda técnica conocida
 
 Simplificaciones deliberadas, documentadas en el `research.md` de cada feature:
 
-- **Ocupación de asientos**: `SinAsientosOcupados` (stub de `IOcupacionAsientos`) informa todos los
-  asientos como disponibles hasta que exista la feature de Reservas, que reemplazará solo su
-  registro en `Program.cs`, sin cambiar el contrato HTTP.
+- **Outbox sin publicador** (desviación del Principio VI de la constitución): crear y cancelar una reserva
+  escribe `ReservaCreada` / `ReservaCancelada` en `OutboxMensajes` dentro de la misma transacción, pero no
+  existe todavía el proceso que los publica (`ProcesadoEn` queda en `NULL`). Tampoco se emite un evento
+  cuando una reserva vence (el vencimiento se calcula contra el reloj). Ambos llegan con la feature de
+  notificaciones en tiempo real (SignalR). Ver `specs/004-reserva-asientos-funcion/plan.md`, Complexity Tracking.
 - **Marca "sin funciones disponibles" del Catálogo**: `NingunaFuncionDisponibleChecker` sigue
   devolviendo que ninguna película tiene funciones, aunque el módulo `Funciones` ya existe.
 - **CORS**: no está configurado; un front web servido desde otro origen necesita configurarlo o
@@ -172,6 +195,10 @@ dotnet test tests/CinemaSystemRandomPlay.Domain.UnitTests
 dotnet test tests/CinemaSystemRandomPlay.Application.UnitTests
 dotnet test tests/CinemaSystemRandomPlay.IntegrationTests   # requiere Docker activo (Testcontainers)
 ```
+
+Los tests de integración de reservas (`Reservas/`) también aceptan un Postgres ya levantado en lugar de
+Docker: definí `CINEMA_TEST_POSTGRES` con una cadena de conexión al servidor (cada fixture crea y descarta
+su propia base).
 
 ## Stack técnico
 

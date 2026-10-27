@@ -2,22 +2,22 @@ using CinemaSystemRandomPlay.Domain.Catalogo;
 using CinemaSystemRandomPlay.Infrastructure.Persistence;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Catalogo;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
+using CinemaSystemRandomPlay.IntegrationTests.Compartido;
 
 namespace CinemaSystemRandomPlay.IntegrationTests.Catalogo;
 
 public class PeliculaRepositoryTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
+    private readonly PostgresDePrueba _postgres = new();
 
     private CinemaDbContext _dbContext = null!;
 
     public async Task InitializeAsync()
     {
-        await _container.StartAsync();
+        await _postgres.Iniciar();
 
         var options = new DbContextOptionsBuilder<CinemaDbContext>()
-            .UseNpgsql(_container.GetConnectionString())
+            .UseNpgsql(_postgres.ConnectionString)
             .Options;
 
         _dbContext = new CinemaDbContext(options);
@@ -27,7 +27,7 @@ public class PeliculaRepositoryTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _dbContext.DisposeAsync();
-        await _container.DisposeAsync();
+        await _postgres.DisposeAsync();
     }
 
     [Fact]
