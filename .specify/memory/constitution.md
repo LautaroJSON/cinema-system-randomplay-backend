@@ -1,18 +1,24 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.0.0 → 1.0.1
-Rationale: PATCH — aclaración de nomenclatura, no cambio de regla de fondo. Los agregados del
-           dominio se nombran en español (decisión tomada durante el diseño de la primera
-           feature, Catálogo de Películas) y la constitución todavía los nombraba en inglés,
-           generando una inconsistencia real con spec.md/plan.md/tasks.md ya generados.
+Version change: 1.0.1 → 2.0.0
+Rationale: MAJOR — redefinición incompatible de un principio (según la política de versionado
+           de Gobernanza). El Principio V deja de ser NO NEGOCIABLE: el testing pasa de
+           obligación general a decisión por criterio, con la reserva concurrente de asientos
+           como única obligación sin excepción.
 
 Modified principles:
-  - II. DDD Ligero — Invariantes en el Dominio: lista de agregados actualizada de
-    `Movie`/`Showtime`/`Screen`/`Reservation` a `Pelicula`/`Sucursal`/`Sala`/`Funcion`/`Reserva`
-    (se agrega `Sucursal`, que no estaba nombrada); Value Objects de ejemplo actualizados de
-    `SeatPosition`/`Money` a `Asiento`/`Dinero`; se agrega una frase explícita de convención de
-    nomenclatura en español para los tipos del dominio.
+  - V. "Testing como Ciudadano de Primera Clase (NO NEGOCIABLE)" →
+    "Testing por Criterio — Donde Aporta Valor": criterios explícitos de cuándo testear y
+    cuándo no; se elimina la obligación general de unitarios de Domain y de integración para
+    todo caso de uso que modifica estado; se mantiene obligatorio el test de concurrencia de
+    reservas y la regla de usar Postgres real (Testcontainers, no InMemory) al testear
+    persistencia; se agrega cómo aplicar el criterio en /speckit-plan y /speckit-tasks.
+
+Modified sections:
+  - Flujo de Desarrollo y Puertas de Calidad: puertas de CI 2 y 3 reescritas para ser
+    coherentes con el nuevo Principio V (pasan todos los tests existentes; la reserva de
+    asientos exige su test de concurrencia).
 
 Added sections: ninguna
 
@@ -21,12 +27,15 @@ Removed sections: ninguna
 Templates / archivos dependientes revisados:
   ✅ .specify/templates/plan-template.md — "Constitution Check" sigue siendo compatible (referencia genérica)
   ✅ .specify/templates/spec-template.md — sin referencias directas a principios
-  ✅ .specify/templates/tasks-template.md — sin referencias directas a principios
+  ✅ .specify/templates/tasks-template.md — dice "Tests are OPTIONAL"; compatible: el Principio V
+    define ahora el criterio para incluirlos
   ⚠ .claude/ (comandos speckit) — leen esta constitución en runtime; no requieren cambios
-  ℹ specs/001-catalogo-peliculas/ (spec.md, plan.md, tasks.md) — ya usaban `Pelicula` en
-    español; esta enmienda los pone en consistencia con la constitución, no al revés.
+  ⚠ README.md — la sección "Testing" describe el testing como "principio no negociable";
+    queda desactualizada (fuera del alcance de este comando)
+  ℹ specs/001–003 — sus tests ya existentes se mantienen; no se eliminan retroactivamente
 
-Follow-up TODOs: ninguno
+Follow-up TODOs:
+  - Actualizar la sección "Testing" del README.md para reflejar el Principio V v2.0.0.
 -->
 
 # Sistema de Reserva de Entradas de Cine — Constitución
@@ -108,22 +117,37 @@ una interfaz.
 **Rationale**: programar contra interfaces habilita el testing, la sustitución de proveedores y
 mantiene la regla de dependencia del Principio I.
 
-### V. Testing como Ciudadano de Primera Clase (NO NEGOCIABLE)
+### V. Testing por Criterio — Donde Aporta Valor
 
-Las pruebas son parte del entregable, no un extra opcional.
+Los tests se escriben cuando reducen un riesgo real, no por obligación general. La decisión de
+testear (o no) una tarea se toma con juicio, aplicando los criterios siguientes.
 
-- La lógica de `Domain` **DEBE** cubrirse con tests unitarios que ejerciten los objetos reales,
-  sin mocks pesados de colaboradores de dominio.
-- Los casos de uso críticos —en particular la **reserva concurrente de asientos**— **DEBEN**
-  tener tests de integración contra un motor de base de datos real levantado con Testcontainers.
-- **NO DEBE** confiarse únicamente en el provider InMemory de EF Core para validar unicidad,
-  restricciones o concurrencia, porque no refleja el comportamiento del motor real.
-- Un caso de uso que modifica estado **NO DEBERÍA** darse por terminado sin su prueba de
-  integración correspondiente; cualquier excepción se documenta según Gobernanza.
+- Una tarea **DEBERÍA** llevar tests cuando incluye al menos uno de estos casos:
+  - invariantes o reglas de negocio no triviales del dominio (validaciones, transiciones de
+    estado, cálculos);
+  - un caso de uso que modifica estado;
+  - consultas con lógica de filtrado, ordenamiento o manejo de fechas/horas;
+  - cualquier comportamiento donde un bug sería caro, difícil de detectar o silencioso.
+- Una tarea **NO NECESITA** tests cuando su código es trivial: DTOs y `record` sin lógica,
+  registro en el DI container, mapeos 1 a 1, constructores que solo asignan, y cambios de
+  configuración o documentación. Agregar tests en estos casos se considera ruido, no calidad.
+- Única obligación sin excepción: la **reserva concurrente de asientos** **DEBE** tener un test
+  de integración de concurrencia (pedidos simultáneos sobre el mismo asiento) contra Postgres
+  real.
+- Cuando se testee persistencia, unicidad, restricciones o concurrencia, el test **DEBE** correr
+  contra un motor de base de datos real levantado con Testcontainers; **NO DEBE** usarse el
+  provider InMemory de EF Core para eso, porque no refleja el comportamiento del motor real.
+- Los tests de `Domain` **DEBERÍAN** ejercitar los objetos reales, sin mocks pesados de
+  colaboradores de dominio.
+- En `/speckit-plan`, el plan **DEBE** indicar qué se testea y qué no, con una línea de
+  justificación por cada decisión. En `/speckit-tasks`, las tareas de test se incluyen cuando la
+  tarea cumple los criterios anteriores —sin necesidad de que la spec las pida explícitamente— y
+  se omiten cuando no aportan valor.
 
-**Rationale**: las condiciones de carrera y las restricciones únicas solo se prueban de forma
-fiable contra el motor real; descubrirlas en producción es inaceptable para un sistema de
-reservas.
+**Rationale**: testear todo por obligación encarece cada cambio sin reducir riesgo en el código
+trivial; testear por criterio concentra el esfuerzo donde un bug es caro. La concurrencia de
+reservas se mantiene obligatoria porque sus condiciones de carrera solo aparecen contra el motor
+real y descubrirlas en producción es inaceptable para un sistema de reservas.
 
 ### VI. Consistencia de Datos vía Outbox + Eventos
 
@@ -187,8 +211,9 @@ caras de introducir después; mantienen el código predecible y escalable.
   cómo los respeta.
 - Puertas de CI obligatorias antes de merge:
   1. La solución compila con nullable habilitado y sin advertencias nuevas.
-  2. Pasan los tests unitarios de dominio.
-  3. Pasan los tests de integración con Testcontainers de los casos de uso críticos.
+  2. Pasan todos los tests existentes (unitarios y de integración con Testcontainers).
+  3. Si el cambio toca la reserva de asientos, existe y pasa su test de integración de
+     concurrencia (Principio V).
 - La revisión de código **DEBE** verificar explícitamente la regla de dependencia (Principio I),
   la ausencia de lógica de negocio en controllers (Principio VIII) y la ausencia de efectos
   externos dentro de transacciones (Principio VI).
@@ -212,4 +237,4 @@ caras de introducir después; mantienen el código predecible y escalable.
 - Para guía de desarrollo en runtime, los comandos de Spec Kit (`/speckit-plan`,
   `/speckit-tasks`, `/speckit-implement`) leen esta constitución como fuente de verdad.
 
-**Version**: 1.0.1 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-09-21
+**Version**: 2.0.0 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-10-27

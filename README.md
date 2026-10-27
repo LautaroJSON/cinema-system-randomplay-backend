@@ -160,10 +160,12 @@ Simplificaciones deliberadas, documentadas en el `research.md` de cada feature:
 
 ## Testing
 
-El testing es un principio no negociable de la constitución: la lógica de `Domain` se cubre con
-tests unitarios, y los casos de uso se validan con tests de integración contra un **Postgres
-real** levantado con Testcontainers — el provider InMemory de EF Core no se usa para validar
-restricciones ni comportamiento de queries.
+El testing se aplica por criterio (Principio V de la constitución): se testean las reglas de negocio
+no triviales, los casos de uso que modifican estado y las consultas con lógica de filtrado o fechas; el
+código trivial (DTOs, registro de DI, mapeos 1 a 1) no lleva tests. La única obligación sin excepción
+es el test de concurrencia de la reserva de asientos. Cuando se testea persistencia, restricciones o
+concurrencia, se hace contra un **Postgres real** levantado con Testcontainers — el provider InMemory
+de EF Core no se usa para eso.
 
 ```bash
 dotnet test tests/CinemaSystemRandomPlay.Domain.UnitTests
