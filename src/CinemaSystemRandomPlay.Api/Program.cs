@@ -23,12 +23,14 @@ using CinemaSystemRandomPlay.Infrastructure.Persistence.Funciones;
 using CinemaSystemRandomPlay.Infrastructure.Invitados;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using System.Reflection;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,13 +53,16 @@ builder.Services.AddControllers()
 
 // Token del carrito del comprador anónimo: JWT firmado por esta API (specs/007-carrito-anonimo/research.md, Decisión 1). Las
 // opciones se enlazan de forma diferida y se validan al arrancar: sin una ClaveFirma de al menos 32 bytes, la API no inicia.
-builder.Services.AddOptions<OpcionesInvitados>()
+var opcionesInvitados = builder.Services.AddOptions<OpcionesInvitados>()
     .Bind(builder.Configuration.GetSection(OpcionesInvitados.Seccion))
     .Validate(
         o => Encoding.UTF8.GetByteCount(o.ClaveFirma) >= OpcionesInvitados.LargoMinimoClave,
         $"Falta {OpcionesInvitados.Seccion}:ClaveFirma o mide menos de {OpcionesInvitados.LargoMinimoClave} bytes. " +
-        "Configurarla con user-secrets o una variable de entorno (ver specs/007-carrito-anonimo/quickstart.md).")
-    .ValidateOnStart();
+        "Configurarla con user-secrets o una variable de entorno (ver specs/007-carrito-anonimo/quickstart.md).");
+// El generador de docs/openapi.json (GetDocument.Insider) arranca la app al compilar, sin secretos ni entorno: solo ahí no se
+// valida al arrancar, porque nunca atiende pedidos.
+if (Assembly.GetEntryAssembly()?.GetName().Name != "GetDocument.Insider")
+    opcionesInvitados.ValidateOnStart();
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OpcionesInvitados>>().Value);
 builder.Services.AddOptions<OpcionesCarritos>().Bind(builder.Configuration.GetSection(OpcionesCarritos.Seccion));
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OpcionesCarritos>>().Value);
@@ -152,8 +157,8 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// Documento OpenAPI: /openapi/v1.json en runtime y docs/openapi.json en cada build (ver Compartido/ConfiguracionOpenApi.cs).
+builder.Services.AgregarDocumentacionOpenApi();
 
 builder.Services.AddDbContext<CinemaDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("CinemaDb")));
@@ -207,6 +212,8 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    // Referencia navegable de la API en /scalar, con el documento de /openapi/v1.json.
+    app.MapScalarApiReference();
 
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
