@@ -7,7 +7,7 @@ namespace CinemaSystemRandomPlay.IntegrationTests.Compartido;
 
 /// <summary>
 /// Emite JWT firmados con claves simétricas de test. <see cref="Crear"/> imita un token del personal (esquema OIDC);
-/// <see cref="Invitado"/> imita la credencial de comprador invitado que emite la API (la factory configura
+/// <see cref="Carrito"/> imita el token de carrito que emite la API (la factory configura
 /// <see cref="ClaveFirmaDePrueba"/> como <c>Invitados:ClaveFirma</c>).
 /// </summary>
 public static class TokensDePrueba
@@ -41,20 +41,23 @@ public static class TokensDePrueba
         });
     }
 
-    /// <summary>Credencial de invitado. <paramref name="email"/> se pone tal cual en el claim: la API debe normalizarlo.</summary>
-    public static string Invitado(
-        string email,
+    /// <summary>
+    /// Token de carrito con la forma del que emite la API. Sirve para probar tokens alterados: vencidos, de otra clave u otro
+    /// emisor, con otro tipo o sin el claim del carrito. Los tokens válidos de los tests salen de la respuesta de creación.
+    /// </summary>
+    public static string Carrito(
+        Guid carritoId,
         bool vencido = false,
         string? claveFirma = null,
         string emisor = OpcionesInvitados.Emisor,
-        string tipo = OpcionesInvitados.TipoCredencial,
-        bool conEmail = true)
+        string tipo = OpcionesInvitados.TipoToken,
+        bool conClaimCarrito = true)
     {
         var ahora = DateTime.UtcNow;
 
-        var claims = new Dictionary<string, object> { ["sub"] = email, ["tipo"] = tipo };
-        if (conEmail)
-            claims["email"] = email;
+        var claims = new Dictionary<string, object> { ["sub"] = carritoId.ToString(), ["tipo"] = tipo };
+        if (conClaimCarrito)
+            claims[OpcionesInvitados.ClaimCarrito] = carritoId.ToString();
 
         return Handler.CreateToken(new SecurityTokenDescriptor
         {

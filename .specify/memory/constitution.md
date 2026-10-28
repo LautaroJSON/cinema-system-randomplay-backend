@@ -1,48 +1,28 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 2.0.0 → 3.0.0
-Rationale: MAJOR — redefinición incompatible de un principio (según la política de versionado
-           de Gobernanza). El comprador deja de ser un usuario autenticado con rol `Customer`
-           y pasa a ser un invitado identificado por un email verificado. OIDC con JWT bearer
-           queda reservado al personal interno (`CinemaManager`, `Admin`).
+Version change: 4.0.0 → 4.0.1
+Rationale: PATCH — refinamiento no semántico. Los ejemplos de los Principios II y VI nombraban el
+           agregado `Reserva`, que la feature 007-carrito-anonimo renombró a `Carrito`. Las reglas no
+           cambian.
 
 Modified principles:
-  - VII. "Autenticación y Autorización Explícitas" (mismo título), contenido redefinido:
-    * Se elimina el rol `Customer` y la exigencia de JWT/OIDC para quien reserva o paga.
-    * OIDC con JWT bearer y RBAC se mantienen solo para `CinemaManager` y `Admin`; la Api sigue
-      sin gestionar contraseñas.
-    * Se introduce el acceso de invitado verificado: el comprador se identifica con un email
-      verificado y accede a sus reservas con una credencial verificable (token de acceso a la
-      reserva o email verificado). Conocer el id o el email de una reserva NO alcanza.
-    * Se mantiene la regla de autorización explícita: todo endpoint declara su modalidad
-      (público, invitado verificado o personal con rol) y el fallback es cerrado.
-
-Modified sections:
-  - Restricciones de Plataforma y Tecnología: integraciones externas actuales pasan a ser
-    Stripe, un proveedor OIDC (solo personal interno) y un servicio de envío de email
-    (verificación del invitado).
+  - II. "DDD Ligero — Invariantes en el Dominio": la lista de agregados y el ejemplo de nombres en
+    español pasan de `Reserva` a `Carrito`; el ejemplo de invariante habla del vencimiento del carrito.
+  - VI. "Consistencia de Datos vía Outbox + Eventos": el ejemplo "reserva creada" pasa a "carrito creado".
 
 Added sections: ninguna
 
 Removed sections: ninguna
 
 Templates / archivos dependientes revisados:
-  ✅ .specify/templates/plan-template.md — "Constitution Check" genérico; sin referencias a Customer/OIDC
-  ✅ .specify/templates/spec-template.md — sin referencias a roles ni autenticación
-  ✅ .specify/templates/tasks-template.md — sin referencias a roles ni autenticación
-  ⚠ .claude/ (comandos speckit) — leen esta constitución en runtime; no requieren cambios
-  ⚠ Código y specs existentes siguen el modelo anterior y quedan desalineados hasta la
-    feature de identidad del invitado:
-    - src/…Api/Program.cs (política `Customer`, JwtBearer) y ReservasController
-    - specs/004-reserva-asientos-funcion (spec, plan, research Decisión 7, contracts, quickstart)
-    - README.md (secciones de autenticación y endpoints 🔒 `Customer`)
-  ℹ specs/001–003 y 005 — endpoints públicos o sin dependencia del rol; sin cambios
+  ✅ .specify/templates/plan-template.md, spec-template.md, tasks-template.md — sin referencias
+  ✅ Código: el agregado ya se llama `Carrito` (feature 007)
 
-Follow-up TODOs:
-  - Especificar la identidad del comprador invitado con email (nueva feature) y migrar la
-    feature 004 a ese modelo; hasta entonces el código vigente incumple el Principio VII v3.0.0.
-  - Actualizar README.md (autenticación, endpoints y "Deuda técnica conocida").
+Follow-up TODOs: ninguno.
+
+Historia: 3.0.0 → 4.0.0 (2026-10-28, MAJOR): Principio VII redefinido para el comprador anónimo con
+token de carrito; email solo de entrega; defensas por carrito, origen y función.
 -->
 
 # Sistema de Reserva de Entradas de Cine — Constitución
@@ -74,10 +54,10 @@ testear el dominio sin arranque de framework y razonar sobre el sistema por capa
 
 ### II. DDD Ligero — Invariantes en el Dominio
 
-Los agregados (`Pelicula`, `Sucursal`, `Sala`, `Funcion`, `Reserva`) encapsulan y protegen sus
+Los agregados (`Pelicula`, `Sucursal`, `Sala`, `Funcion`, `Carrito`) encapsulan y protegen sus
 propias invariantes.
 
-- Reglas como "un asiento no puede reservarse dos veces para una función" o "una reserva expira
+- Reglas como "un asiento no puede reservarse dos veces para una función" o "un carrito vence
   a los N minutos si no se confirma el pago" **DEBEN** vivir dentro del agregado o en un domain
   service, nunca en controllers, handlers de infraestructura ni configuraciones del ORM.
 - El estado de un agregado **DEBE** ser inválido de construir: los constructores y métodos
@@ -87,7 +67,7 @@ propias invariantes.
   `Asiento` y `Dinero`. Los Value Objects son inmutables y validan sus argumentos.
 - El ORM **PUEDE** mapear estos tipos, pero la persistencia no define las reglas.
 - Los tipos del dominio (agregados, entidades y Value Objects) **DEBEN** nombrarse en español
-  (ej. `Pelicula`, `Reserva`, `Asiento`), reflejando el lenguaje ubicuo del negocio en su idioma
+  (ej. `Pelicula`, `Carrito`, `Asiento`), reflejando el lenguaje ubicuo del negocio en su idioma
   original.
 
 **Rationale**: si las invariantes viven en un solo lugar y no se pueden eludir, la corrección
@@ -160,7 +140,7 @@ real y descubrirlas en producción es inaceptable para un sistema de reservas.
 
 Los efectos secundarios externos no se disparan desde dentro de una transacción de negocio.
 
-- Los cambios de estado relevantes (reserva creada, asiento liberado, pago confirmado) **DEBEN**
+- Los cambios de estado relevantes (carrito creado, asiento liberado, pago confirmado) **DEBEN**
   registrarse como filas en una tabla `outbox` dentro de la **misma transacción** que persiste
   el cambio de negocio.
 - Un proceso en background **DEBE** leer la tabla outbox y publicar los eventos hacia el hub de
@@ -175,25 +155,37 @@ confirmado.
 
 ### VII. Autenticación y Autorización Explícitas
 
-- El comprador (quien reserva y paga entradas) **NO DEBE** necesitar cuenta ni contraseña. Es un
-  **invitado** identificado por un email que **DEBE** verificarse antes de concederle acceso a
-  sus reservas. El rol `Customer` no existe.
-- El acceso de un invitado a una reserva **DEBE** probarse con una credencial verificable (un
-  token de acceso a la reserva o un email verificado). **NO DEBE** ser posible acceder a una
-  reserva ajena conociendo solo su id o su email.
+- El comprador (quien reserva y paga entradas) es **anónimo**: **NO DEBE** necesitar cuenta,
+  contraseña, login ni verificación de email para reservar. El rol `Customer` no existe.
+- Al elegir asientos el comprador obtiene un **carrito** (una reserva pendiente con retención
+  corta) identificado por un **token de acceso** aleatorio y no adivinable. Ese token es la única
+  credencial del comprador: solo quien lo presenta **PUEDE** ver, modificar, abandonar o pagar ese
+  carrito o la reserva que resulte de él.
+- **NO DEBE** ser posible acceder a un carrito o reserva ajena conociendo solo su id ni ningún
+  otro dato del comprador. Ante una credencial ausente o ajena, la respuesta **DEBE** ser la misma
+  que para un recurso inexistente.
+- El email del comprador se pide recién al confirmar la compra, **solo** para entregar la
+  entrada. **NO DEBE** usarse como credencial ni como requisito para reservar, y no se verifica.
+- El sistema **DEBE** defenderse del acaparamiento de asientos con límites explícitos y
+  configurables, como mínimo: tope de asientos por carrito, límite de carritos creados por origen
+  en una ventana de tiempo y tope global de asientos retenidos por función. La creación de
+  carritos **DEBE** exponer un punto de extensión para un desafío anti-bots (CAPTCHA). Los errores
+  de estos límites **DEBEN** usar códigos estables que no revelen datos de otros compradores.
 - El personal interno se autentica vía OIDC con JWT bearer; la `Api` valida el token y no
   gestiona contraseñas. Su autorización **DEBE** ser RBAC declarada explícitamente por endpoint o
   caso de uso, usando los roles `CinemaManager` y `Admin`.
 - **NO DEBE** existir autorización implícita: un endpoint sin modalidad de acceso declarada
-  (público, invitado verificado o personal con rol) se considera un defecto, no un endpoint
+  (público, portador del carrito o personal con rol) se considera un defecto, no un endpoint
   público. El fallback **DEBE** ser cerrado y los endpoints públicos se marcan de forma
   explícita.
 
-**Rationale**: en un cine se compra un boleto sin crear una cuenta; exigirla agrega fricción sin
-aportar seguridad útil al comprador. Aun así, retener asientos requiere saber quién es el dueño de
-la reserva (para el tope por cliente, la cancelación y el pago), y un email sin verificar es
-falsificable. La seguridad implícita es la principal fuente de exposición accidental; exigir
-declaración explícita convierte cada omisión en algo visible en revisión.
+**Rationale**: en un cine se compra un boleto sin crear una cuenta ni verificar nada; exigirlo
+agrega fricción sin frenar el acaparamiento, porque una persona puede verificar tantos emails o
+alias como quiera. El token prueba la posesión del carrito, que es lo único que hace falta para
+operarlo; el acaparamiento se controla donde de verdad se produce, limitando cuántos asientos
+retiene cada carrito, cuántos carritos abre cada origen y cuántos asientos de una función pueden
+estar retenidos a la vez. La seguridad implícita es la principal fuente de exposición accidental;
+exigir declaración explícita convierte cada omisión en algo visible en revisión.
 
 ### VIII. Calidad de Código
 
@@ -216,8 +208,8 @@ caras de introducir después; mantienen el código predecible y escalable.
   (REST/JSON) y un hub de SignalR para notificaciones en tiempo real hacia clientes externos.
 - Persistencia mediante EF Core contra un motor relacional real (el mismo motor en desarrollo,
   pruebas de integración y producción).
-- Integraciones externas actuales: Stripe (pagos), un servicio de envío de email (verificación
-  del invitado) y un proveedor OIDC (identidad del personal interno). Todas se consumen a
+- Integraciones externas actuales: Stripe (pagos), un servicio de envío de email (entrega de
+  la entrada al comprador) y un proveedor OIDC (identidad del personal interno). Todas se consumen a
   través de puertos según el Principio IV.
 - Estructura de proyectos: `Domain`, `Application`, `Infrastructure`, `Api`, más proyectos de
   test (`*.UnitTests`, `*.IntegrationTests`).
@@ -254,4 +246,4 @@ caras de introducir después; mantienen el código predecible y escalable.
 - Para guía de desarrollo en runtime, los comandos de Spec Kit (`/speckit-plan`,
   `/speckit-tasks`, `/speckit-implement`) leen esta constitución como fuente de verdad.
 
-**Version**: 3.0.0 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-10-27
+**Version**: 4.0.1 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-10-28

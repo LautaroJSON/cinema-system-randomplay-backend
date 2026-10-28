@@ -1,30 +1,18 @@
 using System.Collections.Concurrent;
-using CinemaSystemRandomPlay.Application.Verificaciones.Ports;
-using CinemaSystemRandomPlay.Domain.Compradores;
+using CinemaSystemRandomPlay.Application.Compartido.Ports;
 
 namespace CinemaSystemRandomPlay.IntegrationTests.Invitados;
 
-/// <summary>Doble de <see cref="IEnviadorDeEmail"/> que guarda los mensajes para que los tests lean el código.</summary>
+/// <summary>Doble de <see cref="IEnviadorDeEmail"/> que guarda los mensajes, para comprobar que no se envía nada.</summary>
 public sealed class EnviadorDeEmailEnMemoria : IEnviadorDeEmail
 {
-    private readonly ConcurrentQueue<MensajeDeVerificacion> _mensajes = new();
+    private readonly ConcurrentQueue<MensajeDeEmail> _mensajes = new();
 
-    public IReadOnlyList<MensajeDeVerificacion> Mensajes => _mensajes.ToList();
+    public IReadOnlyList<MensajeDeEmail> Mensajes => _mensajes.ToList();
 
-    public Task Enviar(MensajeDeVerificacion mensaje, CancellationToken cancellationToken = default)
+    public Task Enviar(MensajeDeEmail mensaje, CancellationToken cancellationToken = default)
     {
         _mensajes.Enqueue(mensaje);
         return Task.CompletedTask;
     }
-
-    public IReadOnlyList<string> CodigosDe(string email)
-    {
-        var comprador = EmailComprador.Crear(email);
-        return _mensajes.Where(m => m.Destinatario == comprador).Select(m => m.Codigo).ToList();
-    }
-
-    public string UltimoCodigoDe(string email) =>
-        CodigosDe(email).LastOrDefault() ?? throw new InvalidOperationException($"No se envió ningún código a {email}.");
-
-    public int CantidadDe(string email) => CodigosDe(email).Count;
 }

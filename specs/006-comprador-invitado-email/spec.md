@@ -1,5 +1,7 @@
 # Feature Specification: Comprador Invitado con Email Verificado
 
+> **Nota (feature 007):** reemplazada por el [carrito anónimo con retención corta](../007-carrito-anonimo/spec.md). La verificación por email, sus endpoints y el tope por email ya no existen. Este documento es el registro histórico de lo que se mergeó en la feature 006.
+
 **Feature Branch**: `006-comprador-invitado-email`
 
 **Created**: 2026-10-27

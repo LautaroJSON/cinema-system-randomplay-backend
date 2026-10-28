@@ -6,4 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Carrito.ReemplazarAsientos es internal: solo AsignadorDeAsientos lo invoca, después de validar contra otros carritos. -->
+    <InternalsVisibleTo Include="CinemaSystemRandomPlay.Domain.UnitTests" />
+  </ItemGroup>
+
 </Project>
