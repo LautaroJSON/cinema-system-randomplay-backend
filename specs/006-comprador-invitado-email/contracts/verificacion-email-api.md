@@ -1,5 +1,7 @@
 # Contrato de API: Verificación de Email del Invitado
 
+> **Nota (feature 007):** reemplazada por el [carrito anónimo con retención corta](../../007-carrito-anonimo/contracts/carritos-api.md). La verificación por email, sus endpoints y el tope por email ya no existen. Este documento es el registro histórico de lo que se mergeó en la feature 006.
+
 Los dos endpoints de este documento son **públicos** (`[AllowAnonymous]`, FR-018): su función es dar acceso
 a quien todavía no lo tiene. Los errores usan el mismo formato `application/problem+json` con una
 extensión `codigo` estable que el resto de la API (ver [reservas-api.md](./reservas-api.md), "Errores").

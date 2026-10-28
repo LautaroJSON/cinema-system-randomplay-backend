@@ -42,12 +42,13 @@ proyecto — un único monolito modular, sin microservicios.
 | Catálogo de Películas | [specs/001-catalogo-peliculas](specs/001-catalogo-peliculas/spec.md) | ✅ Listado, filtro por título y detalle de películas activas |
 | Horarios por Sucursal — Funciones de Hoy | [specs/002-horarios-sucursal-hoy](specs/002-horarios-sucursal-hoy/spec.md) | ✅ Sucursales con funciones hoy y horarios disponibles por Sucursal |
 | Mapa de Asientos de una Función | [specs/003-mapa-asientos-funcion](specs/003-mapa-asientos-funcion/spec.md) | ✅ Disposición de la Sala (filas y asientos) y asientos disponibles de una función |
-| Reserva de Asientos de una Función | [specs/004-reserva-asientos-funcion](specs/004-reserva-asientos-funcion/spec.md) | ✅ Reserva de 1 a 10 asientos con retención de 10 minutos, mis reservas, cancelación y mapa que descuenta lo retenido |
+| Reserva de Asientos de una Función | [specs/004-reserva-asientos-funcion](specs/004-reserva-asientos-funcion/spec.md) | ♻️ Base del carrito de la 007 (retención, todo o nada, mapa que descuenta lo retenido); sus endpoints de reservas ya no existen |
 | Precios de las Funciones | [specs/005-precios-funciones](specs/005-precios-funciones/spec.md) | ✅ Precio por entrada (ARS) en horarios y mapa; la reserva congela el precio unitario e informa su total |
-| Comprador Invitado con Email Verificado | [specs/006-comprador-invitado-email](specs/006-comprador-invitado-email/spec.md) | ✅ El comprador no necesita cuenta: verifica su email con un código y recibe una credencial con vencimiento para reservar, ver y cancelar solo lo suyo |
+| Comprador Invitado con Email Verificado | [specs/006-comprador-invitado-email](specs/006-comprador-invitado-email/spec.md) | ♻️ Reemplazada por la 007: la verificación por email no frenaba el acaparamiento |
+| Carrito Anónimo con Retención Corta | [specs/007-carrito-anonimo](specs/007-carrito-anonimo/spec.md) | ✅ Sin cuenta, login ni verificación: elegir asientos crea un carrito con un token, retenido 5 minutos; la selección se reemplaza de forma atómica sin extender el reloj, se puede abandonar y se indica el email de entrega. Topes por carrito, por función y por origen |
 
-Las tres primeras son features de **solo lectura y acceso público**. La cuarta es la primera que
-modifica estado y exige una credencial de **comprador invitado** (email verificado, sin cuenta ni contraseña). `Sucursal`,
+Las tres primeras son features de **solo lectura y acceso público**. El carrito (007) es lo que modifica estado:
+el comprador es **anónimo** y su única credencial es el **token del carrito** que recibe al crearlo. `Sucursal`,
 `Sala` (con su disposición de asientos) y `Funcion` todavía no tienen alta ni administración vía
 API: sus datos se cargan sembrados directamente en la base de datos (ver
 [Datos de desarrollo](#datos-de-desarrollo) más abajo).
@@ -60,13 +61,14 @@ API: sus datos se cargan sembrados directamente en la base de datos (ver
 4. **Horarios de hoy**: `GET /api/funciones/peliculas/{peliculaId}/sucursales/{sucursalId}/horarios-hoy` → elige un horario (`funcionId`).
 5. **Mapa de asientos**: `GET /api/funciones/{funcionId}/asientos` → ve qué asientos están disponibles.
 
-6. **Verificar el email**: `POST /api/verificaciones-email` (llega un código) y
-   `POST /api/verificaciones-email/confirmacion` → devuelve una **credencial** con vencimiento (60 min).
-7. **Reservar** (con la credencial): `POST /api/funciones/{funcionId}/reservas` → retiene los asientos
-   hasta `min(creación + 10 min, inicio de la función)`.
-8. **Mis reservas / cancelar**: `GET /api/reservas`, `GET /api/reservas/{id}`, `POST /api/reservas/{id}/cancelacion`.
+6. **Elegir asientos** (sin credencial): `POST /api/funciones/{funcionId}/carritos` → crea un carrito que retiene
+   los asientos hasta `min(creación + 5 min, inicio de la función)` y devuelve su **token**.
+7. **Cambiar la selección** (con el token): `PUT /api/carritos/{id}/asientos` → reemplaza la selección completa de
+   forma atómica; el vencimiento no se extiende.
+8. **Email de entrega**: `PUT /api/carritos/{id}/email-entrega` → se guarda sin verificar, para enviar la entrada.
+9. **Ver o abandonar**: `GET /api/carritos/{id}`, `POST /api/carritos/{id}/abandono` (libera los asientos al instante).
 
-El próximo paso del flujo es el **pago** de la reserva (feature pendiente).
+El próximo paso del flujo es el **pago** del carrito (feature pendiente), que enviará la entrada al email indicado.
 
 ## Cómo levantar el sistema
 
@@ -114,10 +116,12 @@ es fijo: `88888888-0000-0000-0000-000000000001`.
 ## Endpoints
 
 Cada endpoint declara su modalidad de acceso: **pública** (`[AllowAnonymous]` explícito: catálogo, horarios,
-mapa y los dos de verificación de email), **invitado verificado** (reservas: `Authorization: Bearer <credencial>`,
-la credencial que entrega la verificación del email) o **personal con rol** (`CinemaManager`/`Admin`, por el
-proveedor OIDC; la política existe pero todavía no hay endpoints de personal). Un endpoint sin modalidad declarada
-exige usuario autenticado (fallback cerrado) y se considera un defecto. El rol `Customer` ya no existe.
+mapa y crear un carrito), **portador del carrito** (`Authorization: Bearer <token>`, el token que devuelve la
+creación del carrito) o **personal con rol** (`CinemaManager`/`Admin`, por el proveedor OIDC; la política existe
+pero todavía no hay endpoints de personal). Un endpoint sin modalidad declarada exige usuario autenticado
+(fallback cerrado) y se considera un defecto. El rol `Customer` no existe. Sin token válido, las operaciones del
+carrito responden `401` para cualquier id; con el token de otro carrito, `404 carrito-no-encontrado`, igual que
+si no existiera.
 
 | Método | Ruta | Descripción |
 |---|---|---|
@@ -125,13 +129,12 @@ exige usuario autenticado (fallback cerrado) y se considera un defecto. El rol `
 | `GET` | `/api/catalogo/peliculas/{id}` | Detalle de una película activa (`404` si no existe o está inactiva) |
 | `GET` | `/api/funciones/peliculas/{peliculaId}/sucursales-hoy` | Sucursales con al menos una función hoy para esa película |
 | `GET` | `/api/funciones/peliculas/{peliculaId}/sucursales/{sucursalId}/horarios-hoy` | Horarios de hoy disponibles en esa Sucursal |
-| `GET` | `/api/funciones/{funcionId}/asientos` | Mapa de asientos de una función: filas de la Sala y asientos disponibles, sin los retenidos por reservas vigentes (`404` si no existe, `410` si ya comenzó) |
-| `POST` | `/api/verificaciones-email` | Pide un código de un solo uso para un email. `202` idéntico exista o no el email; `400` si es inválido; `429` si se superó el límite por email o por origen |
-| `POST` | `/api/verificaciones-email/confirmacion` | Ingresa el código y devuelve la credencial (`200`), o `400 codigo-invalido`/`codigo-invalidado`, `410 codigo-vencido` |
-| `POST` | `/api/funciones/{funcionId}/reservas` | 🔒 Invitado. Reserva 1 a 10 asientos (todo o nada). `201`, o `400`/`404`/`409`/`410`/`422` con `codigo`; `401` sin credencial vigente |
-| `GET` | `/api/reservas` | 🔒 Invitado. Reservas de su email, de la más reciente a la más antigua |
-| `GET` | `/api/reservas/{reservaId}` | 🔒 Invitado. Una reserva propia (`404` si no existe o es de otro email) |
-| `POST` | `/api/reservas/{reservaId}/cancelacion` | 🔒 Invitado. Cancela una reserva propia pendiente y vigente (`409 reserva-no-cancelable` si no) |
+| `GET` | `/api/funciones/{funcionId}/asientos` | Mapa de asientos de una función: filas de la Sala y asientos disponibles, sin los retenidos por carritos activos (`404` si no existe, `410` si ya comenzó) |
+| `POST` | `/api/funciones/{funcionId}/carritos` | Crea un carrito con 1 a 10 asientos (todo o nada) y devuelve el carrito y su `token` (`201`). `400`/`404`/`409 asientos-no-disponibles` o `funcion-sin-cupo`/`410`/`422`; `403 desafio-rechazado`; `429 demasiados-pedidos` si se superó el límite por origen |
+| `GET` | `/api/carritos/{carritoId}` | 🔒 Portador. El carrito, con su estado efectivo (`Activo`, `Expirado`, `Abandonado`) |
+| `PUT` | `/api/carritos/{carritoId}/asientos` | 🔒 Portador. Reemplaza la selección (atómico, todo o nada, sin extender el vencimiento). `409 carrito-no-activo` si venció o se abandonó |
+| `POST` | `/api/carritos/{carritoId}/abandono` | 🔒 Portador. Abandona el carrito y libera sus asientos (`409 carrito-no-activo` si ya no está activo) |
+| `PUT` | `/api/carritos/{carritoId}/email-entrega` | 🔒 Portador. Guarda el email de entrega, normalizado y sin verificar (`400` si es inválido) |
 
 En el mapa de asientos solo se envían los asientos **disponibles**. Todo asiento de la fila (de 1 a
 `cantidadAsientos`) que no figure en `asientosDisponibles` está ocupado, y el front debe mostrarlo
@@ -141,7 +144,7 @@ Contratos completos, incluyendo códigos de error y ejemplos de body, en
 [`specs/001-catalogo-peliculas/contracts`](specs/001-catalogo-peliculas/contracts/catalogo-api.md),
 [`specs/002-horarios-sucursal-hoy/contracts`](specs/002-horarios-sucursal-hoy/contracts/funciones-api.md)
 [`specs/003-mapa-asientos-funcion/contracts`](specs/003-mapa-asientos-funcion/contracts/mapa-asientos-api.md)
-y [`specs/004-reserva-asientos-funcion/contracts`](specs/004-reserva-asientos-funcion/contracts/reservas-api.md).
+y [`specs/007-carrito-anonimo/contracts`](specs/007-carrito-anonimo/contracts/carritos-api.md).
 En `Development` también está disponible el explorador OpenAPI en `/openapi/v1.json`.
 
 ### Forma de la respuesta del mapa de asientos
@@ -173,49 +176,55 @@ interface Dinero {
 }
 ```
 
-Los horarios de hoy informan `precioEntrada` por función, y las reservas (crear, listar y consultar)
-informan `precioUnitario` y `total` (`precioUnitario × asientos`), congelados al crear la reserva.
+Los horarios de hoy informan `precioEntrada` por función, y el carrito informa `precioUnitario` (congelado al
+crearlo) y `total` (`precioUnitario × asientos`, que cambia si se reemplaza la selección).
 
-## Configuración de reservas y autenticación
+## Configuración del carrito y autenticación
 
-- `Reservas:MinutosRetencion` (10) y `Reservas:MaximoAsientosPorComprador` (10) en `appsettings.json`.
-  El tope de 10 asientos retenidos por función se cuenta por **email normalizado** (sin espacios en los
-  bordes y en minúsculas); los alias de proveedor (`ana+1@…`, puntos de Gmail) son emails distintos.
-- **Comprador invitado** (sección `Invitados`): `ClaveFirma` (obligatoria, mínimo 32 bytes; sin ella la API no
-  arranca), `CodigoMinutosVigencia` (10), `MaximoIntentosFallidos` (5), `CredencialMinutosVigencia` (60),
-  `SolicitudesPorEmail` (5 por hora), `SolicitudesPorOrigen` (20 por hora) y `VentanaSolicitudesMinutos` (60).
-  En desarrollo local:
+- **Carrito** (sección `Carritos` de `appsettings.json`): `MinutosRetencion` (5), `MaximoAsientosPorCarrito` (10),
+  `PorcentajeMaximoRetenidoPorFuncion` (50: entre todos los carritos activos de una función no se retiene más de la
+  mitad de la sala, redondeado hacia abajo, mínimo 1), `CreacionesPorOrigen` (10) y `VentanaCreacionMinutos` (10).
+- **Token del carrito** (sección `Invitados`): `ClaveFirma` (obligatoria, mínimo 32 bytes; sin ella la API no
+  arranca) y `TokenMinutosVigencia` (60). En desarrollo local:
   `dotnet user-secrets set "Invitados:ClaveFirma" "<al-menos-32-bytes>" --project src/CinemaSystemRandomPlay.Api`
   (`docker compose` ya trae una clave de desarrollo). En otros entornos, por secreto o variable
   (`Invitados__ClaveFirma`).
-- La credencial es un JWT HS256 firmado por esta API (esquema `Invitado`); no se guarda ni se revoca antes de
-  vencer. El personal usa un esquema aparte, `Bearer`, con la configuración estándar
+- El token es un JWT HS256 firmado por esta API (esquema `Invitado`) con el id del carrito como claim; no se guarda
+  ni se revoca. Lo que se puede hacer con él depende del estado del carrito: vencido o abandonado, solo se puede
+  consultar. El personal usa un esquema aparte, `Bearer`, con la configuración estándar
   `Authentication:Schemes:Bearer` (`Authority`, `ValidAudiences`, `ValidIssuer`) y
-  `Autenticacion:ClaimRoles` (por defecto `roles`); un token del personal no sirve como credencial de invitado.
-- **Email**: en `Development` y `Testing` el mensaje con el código **no se envía**: se escribe en el log de la
-  API (destinatario y código). En cualquier otro entorno el envío falla de forma explícita hasta que exista un
-  servicio de email real (fuera de alcance de la feature 006).
-- **Migración de la feature 006**: pasa `Reservas.ClienteId` a `CompradorEmail` y **descarta las reservas
-  existentes** (no hay forma de asignarlas a un email). Se niega a hacerlo si hay reservas y no se definió
-  `CINEMA_PERMITIR_DESCARTE_RESERVAS=true`; `Development` lo define al arrancar.
+  `Autenticacion:ClaimRoles` (por defecto `roles`); un token del personal no sirve como token de carrito.
+- **Desafío anti-bots**: la creación de carritos pasa por el puerto `IDesafioAntiBots` (campo opcional `desafio`
+  del pedido). La implementación registrada, `DesafioAntiBotsDesactivado`, aprueba siempre; sumar un CAPTCHA es
+  registrar otra implementación.
+- **Email**: el email de entrega se guarda en el carrito y no se verifica. Todavía no se envía nada: el puerto
+  `IEnviadorDeEmail` lo usará la feature de pago. En `Development` y `Testing` está registrado un registrador que
+  escribe en el log; en otros entornos, una implementación que falla de forma explícita.
+- **Migraciones que descartan reservas**: la de la feature 006 (`AddCompradorEmailEnReservas`) y la de la 007
+  (`ReemplazarReservasPorCarritos`, que además elimina `VerificacionesEmail` y crea `Carritos`) **descartan las
+  reservas existentes**. Se niegan a hacerlo si hay reservas y no se definió `CINEMA_PERMITIR_DESCARTE_RESERVAS=true`;
+  `Development` lo define al arrancar.
 
 ## Deuda técnica conocida
 
 Simplificaciones deliberadas, documentadas en el `research.md` de cada feature:
 
-- **Outbox sin publicador** (desviación del Principio VI de la constitución): crear y cancelar una reserva
-  escribe `ReservaCreada` / `ReservaCancelada` en `OutboxMensajes` dentro de la misma transacción, pero no
-  existe todavía el proceso que los publica (`ProcesadoEn` queda en `NULL`). Tampoco se emite un evento
-  cuando una reserva vence (el vencimiento se calcula contra el reloj). Ambos llegan con la feature de
+- **Outbox sin publicador** (desviación del Principio VI de la constitución): crear, reemplazar y abandonar un
+  carrito escribe `CarritoCreado` / `SeleccionReemplazada` / `CarritoAbandonado` en `OutboxMensajes` dentro de la
+  misma transacción, pero no existe todavía el proceso que los publica (`ProcesadoEn` queda en `NULL`). Tampoco se
+  emite un evento cuando un carrito vence (el vencimiento se calcula contra el reloj). Ambos llegan con la feature de
   notificaciones en tiempo real (SignalR). Ver `specs/004-reserva-asientos-funcion/plan.md`, Complexity Tracking.
 - **Marca "sin funciones disponibles" del Catálogo**: `NingunaFuncionDisponibleChecker` sigue
   devolviendo que ninguna película tiene funciones, aunque el módulo `Funciones` ya existe.
-- **Límite por origen de los pedidos de código**: usa el rate limiter de ASP.NET Core, por proceso (con varias
+- **Límite de creación de carritos por origen**: usa el rate limiter de ASP.NET Core, por proceso (con varias
   instancias el tope efectivo se multiplica) y, detrás de un proxy, requiere configurar `ForwardedHeaders` para
-  que la IP sea la del cliente. El límite por email, en cambio, vale para todas las instancias (se cuenta en
-  la base). Las verificaciones viejas no se purgan todavía.
-- **Email sin servicio real**: el envío del código está detrás de `IEnviadorDeEmail`; solo existe el registrador
-  de desarrollo. Se envía después de confirmar la transacción: si el envío falla, el invitado pide otro código.
+  que la IP sea la del cliente. Clientes que comparten una IP comparten el límite. El tope global por función,
+  en cambio, es exacto para todas las instancias (se calcula en la base, bajo el bloqueo de la función).
+- **Carritos viejos sin purga**: los carritos expirados y abandonados quedan en la base como historial.
+- **Token perdido**: no hay forma de recuperarlo; el carrito vence solo a los 5 minutos.
+- **Email sin servicio real**: `IEnviadorDeEmail` está registrado pero sin uso hasta la feature de pago; solo
+  existe el registrador de desarrollo.
+- **Desafío anti-bots**: solo existe el punto de extensión; no hay CAPTCHA real.
 - **CORS**: no está configurado; un front web servido desde otro origen necesita configurarlo o
   usar un proxy en desarrollo.
 
@@ -224,7 +233,8 @@ Simplificaciones deliberadas, documentadas en el `research.md` de cada feature:
 El testing se aplica por criterio (Principio V de la constitución): se testean las reglas de negocio
 no triviales, los casos de uso que modifican estado y las consultas con lógica de filtrado o fechas; el
 código trivial (DTOs, registro de DI, mapeos 1 a 1) no lleva tests. La única obligación sin excepción
-es el test de concurrencia de la reserva de asientos. Cuando se testea persistencia, restricciones o
+es el test de concurrencia de la reserva de asientos (`Carritos/CarritoConcurrenteTests`: creaciones,
+reemplazos y tope por función simultáneos). Cuando se testea persistencia, restricciones o
 concurrencia, se hace contra un **Postgres real** levantado con Testcontainers — el provider InMemory
 de EF Core no se usa para eso.
 
@@ -234,7 +244,7 @@ dotnet test tests/CinemaSystemRandomPlay.Application.UnitTests
 dotnet test tests/CinemaSystemRandomPlay.IntegrationTests   # requiere Docker activo (Testcontainers)
 ```
 
-Los tests de integración de reservas (`Reservas/`) también aceptan un Postgres ya levantado en lugar de
+Los tests de integración de carritos (`Carritos/`) también aceptan un Postgres ya levantado en lugar de
 Docker: definí `CINEMA_TEST_POSTGRES` con una cadena de conexión al servidor (cada fixture crea y descarta
 su propia base).
 

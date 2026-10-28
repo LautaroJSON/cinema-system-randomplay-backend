@@ -1,5 +1,7 @@
 # Contrato de API: Reservas con Credencial de Invitado (cambios sobre la feature 004)
 
+> **Nota (feature 007):** reemplazada por el [carrito anónimo con retención corta](../../007-carrito-anonimo/contracts/carritos-api.md). La verificación por email, sus endpoints y el tope por email ya no existen. Este documento es el registro histórico de lo que se mergeó en la feature 006.
+
 Este documento solo describe lo que cambia respecto de
 [../../004-reserva-asientos-funcion/contracts/reservas-api.md](../../004-reserva-asientos-funcion/contracts/reservas-api.md).
 Las rutas, los cuerpos de pedido y respuesta, los códigos de estado y los `codigo` de error **no cambian**

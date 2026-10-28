@@ -16,24 +16,8 @@ Accept: application/json
 GET {{CinemaSystemRandomPlay.Api_HostAddress}}/api/funciones/00000000-0000-0000-0000-000000000000/asientos
 Accept: application/json
 
-### Verificar el email (público): el código llega por email; en desarrollo se escribe en el log de la API
-POST {{CinemaSystemRandomPlay.Api_HostAddress}}/api/verificaciones-email
-Content-Type: application/json
-
-{ "email": "ana@example.com" }
-
-### Ingresar el código y obtener la credencial de invitado (público): copiá `credencial` en la variable de abajo
-POST {{CinemaSystemRandomPlay.Api_HostAddress}}/api/verificaciones-email/confirmacion
-Content-Type: application/json
-
-{ "email": "ana@example.com", "codigo": "000000" }
-
-### Reservas — requieren la credencial de invitado obtenida arriba
-@token = pegá-acá-la-credencial
-
-### Reservar asientos de una función
-POST {{CinemaSystemRandomPlay.Api_HostAddress}}/api/funciones/00000000-0000-0000-0000-000000000000/reservas
-Authorization: Bearer {{token}}
+### Crear un carrito (público, sin cuenta ni login): reemplazá el id por un funcionId. Copiá `carrito.id` y `token` abajo
+POST {{CinemaSystemRandomPlay.Api_HostAddress}}/api/funciones/00000000-0000-0000-0000-000000000000/carritos
 Content-Type: application/json
 
 {
@@ -43,16 +27,34 @@ Content-Type: application/json
   ]
 }
 
-### Mis reservas
-GET {{CinemaSystemRandomPlay.Api_HostAddress}}/api/reservas
+### Operaciones del carrito: requieren el token que devolvió la creación
+@carritoId = 00000000-0000-0000-0000-000000000000
+@token = pegá-acá-el-token
+
+### Ver el carrito
+GET {{CinemaSystemRandomPlay.Api_HostAddress}}/api/carritos/{{carritoId}}
 Authorization: Bearer {{token}}
 Accept: application/json
 
-### Una reserva propia — reemplazá el id
-GET {{CinemaSystemRandomPlay.Api_HostAddress}}/api/reservas/00000000-0000-0000-0000-000000000000
+### Reemplazar la selección (no extiende el vencimiento)
+PUT {{CinemaSystemRandomPlay.Api_HostAddress}}/api/carritos/{{carritoId}}/asientos
 Authorization: Bearer {{token}}
-Accept: application/json
+Content-Type: application/json
 
-### Cancelar una reserva propia — reemplazá el id
-POST {{CinemaSystemRandomPlay.Api_HostAddress}}/api/reservas/00000000-0000-0000-0000-000000000000/cancelacion
+{
+  "asientos": [
+    { "fila": "D", "numero": 1 },
+    { "fila": "D", "numero": 2 }
+  ]
+}
+
+### Indicar el email de entrega (no se verifica)
+PUT {{CinemaSystemRandomPlay.Api_HostAddress}}/api/carritos/{{carritoId}}/email-entrega
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "email": "ana@example.com" }
+
+### Abandonar el carrito (libera los asientos)
+POST {{CinemaSystemRandomPlay.Api_HostAddress}}/api/carritos/{{carritoId}}/abandono
 Authorization: Bearer {{token}}

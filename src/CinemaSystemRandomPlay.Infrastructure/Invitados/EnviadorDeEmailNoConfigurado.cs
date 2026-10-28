@@ -1,15 +1,15 @@
-using CinemaSystemRandomPlay.Application.Verificaciones.Ports;
+using CinemaSystemRandomPlay.Application.Compartido.Ports;
 
 namespace CinemaSystemRandomPlay.Infrastructure.Invitados;
 
 /// <summary>
-/// Se registra fuera de Development y Testing: el envío real de emails está fuera de alcance de esta feature, y registrar el
-/// código en los logs de un entorno real lo filtraría. Falla de forma explícita en lugar de enviar a ningún lado.
+/// Se registra fuera de Development y Testing: todavía no hay un servicio de email real (llegará con la feature de pago,
+/// que envía la entrada). Falla de forma explícita en lugar de enviar a ningún lado.
 /// </summary>
 public class EnviadorDeEmailNoConfigurado : IEnviadorDeEmail
 {
-    public Task Enviar(MensajeDeVerificacion mensaje, CancellationToken cancellationToken = default) =>
+    public Task Enviar(MensajeDeEmail mensaje, CancellationToken cancellationToken = default) =>
         throw new InvalidOperationException(
-            "No hay un servicio de envío de email configurado para este entorno. El envío real de emails está fuera de alcance " +
-            "de la feature 006; en Development y Testing se usa un registrador que escribe el mensaje en el log.");
+            "No hay un servicio de envío de email configurado para este entorno. El envío real llegará con la feature de pago; " +
+            "en Development y Testing se usa un registrador que escribe el mensaje en el log.");
 }

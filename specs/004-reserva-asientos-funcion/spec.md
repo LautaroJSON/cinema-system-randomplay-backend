@@ -1,6 +1,6 @@
 # Feature Specification: Reserva de Asientos de una Función
 
-> **Nota (feature 006):** el mecanismo de identidad de este documento (usuario autenticado con rol `Customer`, identificado por el claim `sub`) fue reemplazado por el **comprador invitado con email verificado**. El comportamiento de negocio de la reserva no cambia. Ver [feature 006](../006-comprador-invitado-email/spec.md).
+> **Nota (features 006 y 007):** el mecanismo de identidad y los endpoints de este documento fueron reemplazados. Hoy el comprador es **anónimo**: al elegir asientos obtiene un **carrito** con un token de acceso, retenido 5 minutos, con la selección reemplazable y sin tope por comprador. Las reglas de retención, todo o nada y no doble retención se conservan. Ver [feature 007](../007-carrito-anonimo/spec.md).
 
 **Feature Branch**: `004-reserva-asientos-funcion`
 

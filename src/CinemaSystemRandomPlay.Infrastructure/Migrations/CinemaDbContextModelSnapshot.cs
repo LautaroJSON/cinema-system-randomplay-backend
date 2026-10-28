@@ -23,6 +23,54 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Carritos.Carrito", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("AbandonadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EmailEntrega")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("FuncionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("VenceEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "PrecioUnitario", "CinemaSystemRandomPlay.Domain.Carritos.Carrito.PrecioUnitario#Dinero", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Moneda")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("PrecioUnitario_Moneda");
+
+                            b1.Property<decimal>("Monto")
+                                .HasColumnType("numeric(12,2)")
+                                .HasColumnName("PrecioUnitario_Monto");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FuncionId", "Estado", "VenceEn");
+
+                    b.ToTable("Carritos", (string)null);
+                });
+
             modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Catalogo.Pelicula", b =>
                 {
                     b.Property<Guid>("Id")
@@ -174,101 +222,6 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
                         });
                 });
 
-            modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Reservas.Reserva", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset?>("CanceladaEn")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Comprador")
-                        .IsRequired()
-                        .HasMaxLength(254)
-                        .HasColumnType("character varying(254)")
-                        .HasColumnName("CompradorEmail");
-
-                    b.Property<DateTimeOffset>("CreadaEn")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Estado")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<Guid>("FuncionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("VenceEn")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.ComplexProperty(typeof(Dictionary<string, object>), "PrecioUnitario", "CinemaSystemRandomPlay.Domain.Reservas.Reserva.PrecioUnitario#Dinero", b1 =>
-                        {
-                            b1.IsRequired();
-
-                            b1.Property<string>("Moneda")
-                                .IsRequired()
-                                .HasMaxLength(3)
-                                .HasColumnType("character varying(3)")
-                                .HasColumnName("PrecioUnitario_Moneda");
-
-                            b1.Property<decimal>("Monto")
-                                .HasColumnType("numeric(12,2)")
-                                .HasColumnName("PrecioUnitario_Monto");
-                        });
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Comprador", "CreadaEn");
-
-                    b.HasIndex("FuncionId", "Estado", "VenceEn");
-
-                    b.ToTable("Reservas", (string)null);
-                });
-
-            modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Verificaciones.VerificacionEmail", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("CodigoHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<DateTimeOffset>("CreadaEn")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(254)
-                        .HasColumnType("character varying(254)");
-
-                    b.Property<string>("Estado")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<int>("IntentosFallidos")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0);
-
-                    b.Property<DateTimeOffset>("VenceEn")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Email")
-                        .IsUnique()
-                        .HasDatabaseName("UX_VerificacionesEmail_Email_Vigente")
-                        .HasFilter("\"Estado\" = 'Vigente'");
-
-                    b.HasIndex("Email", "CreadaEn");
-
-                    b.ToTable("VerificacionesEmail", (string)null);
-                });
-
             modelBuilder.Entity("CinemaSystemRandomPlay.Infrastructure.Persistence.Outbox.OutboxMensaje", b =>
                 {
                     b.Property<Guid>("Id")
@@ -294,6 +247,36 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
                     b.HasIndex("ProcesadoEn", "OcurridoEn");
 
                     b.ToTable("OutboxMensajes", (string)null);
+                });
+
+            modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Carritos.Carrito", b =>
+                {
+                    b.HasOne("CinemaSystemRandomPlay.Domain.Funciones.Funcion", null)
+                        .WithMany()
+                        .HasForeignKey("FuncionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsMany("CinemaSystemRandomPlay.Domain.Funciones.Asiento", "Asientos", b1 =>
+                        {
+                            b1.Property<Guid>("CarritoId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<char>("Fila")
+                                .HasColumnType("character(1)");
+
+                            b1.Property<int>("Numero")
+                                .HasColumnType("integer");
+
+                            b1.HasKey("CarritoId", "Fila", "Numero");
+
+                            b1.ToTable("CarritoAsientos", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("CarritoId");
+                        });
+
+                    b.Navigation("Asientos");
                 });
 
             modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Funciones.Funcion", b =>
@@ -519,36 +502,6 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
                     b.Navigation("Filas");
 
                     b.Navigation("Sucursal");
-                });
-
-            modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Reservas.Reserva", b =>
-                {
-                    b.HasOne("CinemaSystemRandomPlay.Domain.Funciones.Funcion", null)
-                        .WithMany()
-                        .HasForeignKey("FuncionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.OwnsMany("CinemaSystemRandomPlay.Domain.Funciones.Asiento", "Asientos", b1 =>
-                        {
-                            b1.Property<Guid>("ReservaId")
-                                .HasColumnType("uuid");
-
-                            b1.Property<char>("Fila")
-                                .HasColumnType("character(1)");
-
-                            b1.Property<int>("Numero")
-                                .HasColumnType("integer");
-
-                            b1.HasKey("ReservaId", "Fila", "Numero");
-
-                            b1.ToTable("ReservaAsientos", (string)null);
-
-                            b1.WithOwner()
-                                .HasForeignKey("ReservaId");
-                        });
-
-                    b.Navigation("Asientos");
                 });
 #pragma warning restore 612, 618
         }

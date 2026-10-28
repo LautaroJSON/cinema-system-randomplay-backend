@@ -1,19 +1,15 @@
 namespace CinemaSystemRandomPlay.Infrastructure.Invitados;
 
-/// <summary>Configuración de la sección <c>Invitados</c>: verificación del email y credencial del comprador invitado.</summary>
+/// <summary>Configuración de la sección <c>Invitados</c>: firma y vida del token de acceso al carrito del comprador anónimo.</summary>
 public class OpcionesInvitados
 {
     public const string Seccion = "Invitados";
     public const string Emisor = "cinema-api-invitados";
     public const string Audiencia = "cinema-api-invitados";
-    public const string TipoCredencial = "invitado-verificado";
+    public const string TipoToken = "portador-carrito";
+    public const string ClaimCarrito = "carrito";
     public const int LargoMinimoClave = 32;
 
     public string ClaveFirma { get; set; } = string.Empty;
-    public int CodigoMinutosVigencia { get; set; } = 10;
-    public int MaximoIntentosFallidos { get; set; } = 5;
-    public int CredencialMinutosVigencia { get; set; } = 60;
-    public int SolicitudesPorEmail { get; set; } = 5;
-    public int SolicitudesPorOrigen { get; set; } = 20;
-    public int VentanaSolicitudesMinutos { get; set; } = 60;
+    public int TokenMinutosVigencia { get; set; } = 60;
 }
