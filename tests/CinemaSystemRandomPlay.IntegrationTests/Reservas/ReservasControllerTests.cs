@@ -6,7 +6,6 @@ using CinemaSystemRandomPlay.Infrastructure.Persistence.Funciones;
 using CinemaSystemRandomPlay.IntegrationTests.Compartido;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.IdentityModel.Tokens;
 using static CinemaSystemRandomPlay.IntegrationTests.Reservas.ReservasTestHelpers;
 
 namespace CinemaSystemRandomPlay.IntegrationTests.Reservas;
@@ -22,9 +21,9 @@ public class ReservasControllerTests : IClassFixture<ReservasApiFactory>
         _factory = factory;
     }
 
-    private HttpClient Ana() => _factory.CrearCliente(TokensDePrueba.Customer("ana"));
+    private HttpClient Ana() => _factory.CrearCliente(TokensDePrueba.Invitado("ana@example.com"));
 
-    private HttpClient Beto() => _factory.CrearCliente(TokensDePrueba.Customer("beto"));
+    private HttpClient Beto() => _factory.CrearCliente(TokensDePrueba.Invitado("beto@example.com"));
 
     private async Task<int> ContarReservas()
     {
@@ -190,7 +189,9 @@ public class ReservasControllerTests : IClassFixture<ReservasApiFactory>
     [Fact]
     public async Task Post_IdDeFuncionQueNoEsGuid_Devuelve404()
     {
-        var response = await Ana().PostAsJsonAsync("/api/funciones/no-es-guid/reservas", new { asientos = new[] { Asiento("A1") } });
+        // Una ruta que no coincide con ningún endpoint cae en el fallback cerrado: solo el esquema por defecto (el del
+        // personal) la deja pasar hasta el 404. Un anónimo o un invitado reciben 401.
+        var response = await _factory.CrearCliente(TokensDePrueba.Crear("admin", ["Admin"])).PostAsJsonAsync("/api/funciones/no-es-guid/reservas", new { asientos = new[] { Asiento("A1") } });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -220,9 +221,12 @@ public class ReservasControllerTests : IClassFixture<ReservasApiFactory>
     public static TheoryData<string> TokensInvalidos => new()
     {
         { "basura" },
-        { TokensDePrueba.Crear("ana", ["Customer"], vencido: true) },
-        { TokensDePrueba.Crear("ana", ["Customer"], emisor: "https://otro-emisor") },
-        { TokensDePrueba.Crear("ana", ["Customer"], clave: new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes("otra-clave-de-pruebas-de-al-menos-32-bytes-999"))) }
+        { TokensDePrueba.Invitado("ana@example.com", vencido: true) },
+        { TokensDePrueba.Invitado("ana@example.com", emisor: "https://otro-emisor") },
+        { TokensDePrueba.Invitado("ana@example.com", claveFirma: "otra-clave-de-pruebas-de-al-menos-32-bytes-999") },
+        { TokensDePrueba.Invitado("ana@example.com", tipo: "otro-tipo") },
+        { TokensDePrueba.Invitado("ana@example.com", conEmail: false) },
+        { TokensDePrueba.Invitado("no-es-un-email") }
     };
 
     [Theory]
@@ -240,14 +244,14 @@ public class ReservasControllerTests : IClassFixture<ReservasApiFactory>
     [Theory]
     [InlineData("")]
     [InlineData("Admin")]
-    public async Task Post_ConTokenSinRolCustomer_Devuelve403(string rol)
+    public async Task Post_ConTokenDelPersonal_Devuelve401(string rol)
     {
         string[] roles = rol.Length == 0 ? [] : [rol];
         var funcionId = await _factory.SembrarFuncion(Sala, TimeSpan.FromHours(3));
 
         var response = await _factory.CrearCliente(TokensDePrueba.Crear("ana", roles)).Reservar(funcionId, "A1");
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal(0, await ContarReservas());
     }
 
@@ -257,7 +261,7 @@ public class ReservasControllerTests : IClassFixture<ReservasApiFactory>
         var funcionId = await _factory.SembrarFuncion(Sala, TimeSpan.FromHours(3));
 
         var response = await Ana().PostAsJsonAsync($"/api/funciones/{funcionId}/reservas",
-            new { clienteId = "beto", asientos = new[] { Asiento("A1") } });
+            new { email = "beto@example.com", clienteId = "beto", asientos = new[] { Asiento("A1") } });
         var reservaId = (await response.LeerJson()).GetProperty("id").GetGuid();
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -340,15 +344,15 @@ public class ReservasControllerTests : IClassFixture<ReservasApiFactory>
     }
 
     [Fact]
-    public async Task GetReservas_SinToken_Devuelve401_YSinRol_Devuelve403()
+    public async Task GetReservas_SinToken_Devuelve401_YConTokenDelPersonalTambien()
     {
         var lista = await _factory.CrearCliente().GetAsync("/api/reservas");
         var detalle = await _factory.CrearCliente().GetAsync($"/api/reservas/{Guid.NewGuid()}");
-        var sinRol = await _factory.CrearCliente(TokensDePrueba.Crear("ana")).GetAsync("/api/reservas");
+        var sinRol = await _factory.CrearCliente(TokensDePrueba.Crear("ana", ["Admin"])).GetAsync("/api/reservas");
 
         Assert.Equal(HttpStatusCode.Unauthorized, lista.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, detalle.StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, sinRol.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, sinRol.StatusCode);
     }
 
     // ---------- POST /api/reservas/{id}/cancelacion (US4) ----------
@@ -413,13 +417,13 @@ public class ReservasControllerTests : IClassFixture<ReservasApiFactory>
     }
 
     [Fact]
-    public async Task Cancelar_SinToken_Devuelve401_YSinRol_Devuelve403()
+    public async Task Cancelar_SinToken_Devuelve401_YConTokenDelPersonalTambien()
     {
         var sinToken = await _factory.CrearCliente().PostAsync($"/api/reservas/{Guid.NewGuid()}/cancelacion", content: null);
-        var sinRol = await _factory.CrearCliente(TokensDePrueba.Crear("ana")).PostAsync($"/api/reservas/{Guid.NewGuid()}/cancelacion", content: null);
+        var sinRol = await _factory.CrearCliente(TokensDePrueba.Crear("ana", ["Admin"])).PostAsync($"/api/reservas/{Guid.NewGuid()}/cancelacion", content: null);
 
         Assert.Equal(HttpStatusCode.Unauthorized, sinToken.StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, sinRol.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, sinRol.StatusCode);
     }
 
     // ---------- Precios (feature 005) ----------

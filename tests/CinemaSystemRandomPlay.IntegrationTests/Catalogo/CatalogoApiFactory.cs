@@ -22,7 +22,8 @@ public class CatalogoApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:CinemaDb"] = _postgres.ConnectionString
+                ["ConnectionStrings:CinemaDb"] = _postgres.ConnectionString,
+                ["Invitados:ClaveFirma"] = TokensDePrueba.ClaveFirmaDePrueba
             });
         });
     }

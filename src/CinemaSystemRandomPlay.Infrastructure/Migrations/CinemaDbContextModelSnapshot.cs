@@ -182,10 +182,11 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("CanceladaEn")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("ClienteId")
+                    b.Property<string>("Comprador")
                         .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("CompradorEmail");
 
                     b.Property<DateTimeOffset>("CreadaEn")
                         .HasColumnType("timestamp with time zone");
@@ -218,11 +219,54 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClienteId", "CreadaEn");
+                    b.HasIndex("Comprador", "CreadaEn");
 
                     b.HasIndex("FuncionId", "Estado", "VenceEn");
 
                     b.ToTable("Reservas", (string)null);
+                });
+
+            modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Verificaciones.VerificacionEmail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CodigoHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("CreadaEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("IntentosFallidos")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTimeOffset>("VenceEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasDatabaseName("UX_VerificacionesEmail_Email_Vigente")
+                        .HasFilter("\"Estado\" = 'Vigente'");
+
+                    b.HasIndex("Email", "CreadaEn");
+
+                    b.ToTable("VerificacionesEmail", (string)null);
                 });
 
             modelBuilder.Entity("CinemaSystemRandomPlay.Infrastructure.Persistence.Outbox.OutboxMensaje", b =>

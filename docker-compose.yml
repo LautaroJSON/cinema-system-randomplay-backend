@@ -25,6 +25,8 @@ services:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: Development
+      # Clave de firma SOLO para desarrollo local; en cualquier otro entorno se define por secreto o variable de entorno.
+      Invitados__ClaveFirma: clave-de-desarrollo-local-no-usar-en-produccion-0123456789
       ConnectionStrings__CinemaDb: Host=postgres;Port=5432;Database=cinema_dev;Username=postgres;Password=postgres
     ports:
       - "8080:8080"

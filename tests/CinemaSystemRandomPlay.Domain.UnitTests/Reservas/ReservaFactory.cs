@@ -1,6 +1,8 @@
 using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Domain.Reservas;
+using CinemaSystemRandomPlay.Domain.Compradores;
+using static CinemaSystemRandomPlay.Domain.UnitTests.CompradoresDePrueba;
 
 namespace CinemaSystemRandomPlay.Domain.UnitTests.Reservas;
 
@@ -16,9 +18,9 @@ internal static class ReservaFactory
         return funcion;
     }
 
-    public static Reserva ReservaDe(Funcion funcion, string clienteId, DateTimeOffset ahora, params Asiento[] asientos)
+    public static Reserva ReservaDe(Funcion funcion, EmailComprador comprador, DateTimeOffset ahora, params Asiento[] asientos)
     {
-        var resultado = new ReservadorDeAsientos().Reservar(funcion, [], clienteId, asientos, ahora, new ReglasReserva());
+        var resultado = new ReservadorDeAsientos().Reservar(funcion, [], comprador, asientos, ahora, new ReglasReserva());
         return resultado.Reserva ?? throw new InvalidOperationException($"No se pudo reservar: {resultado.Tipo}");
     }
 }

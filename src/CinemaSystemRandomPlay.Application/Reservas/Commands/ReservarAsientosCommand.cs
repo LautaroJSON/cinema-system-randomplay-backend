@@ -3,13 +3,14 @@ using CinemaSystemRandomPlay.Application.Compartido.Ports;
 using CinemaSystemRandomPlay.Application.Reservas.Dtos;
 using CinemaSystemRandomPlay.Domain.Catalogo;
 using CinemaSystemRandomPlay.Domain.Compartido;
+using CinemaSystemRandomPlay.Domain.Compradores;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Domain.Reservas;
 using CinemaSystemRandomPlay.Domain.Reservas.Eventos;
 
 namespace CinemaSystemRandomPlay.Application.Reservas.Commands;
 
-public record ReservarAsientosCommand(Guid FuncionId, string ClienteId, IReadOnlyList<AsientoPedidoDto>? Asientos);
+public record ReservarAsientosCommand(Guid FuncionId, EmailComprador Comprador, IReadOnlyList<AsientoPedidoDto>? Asientos);
 
 public enum EstadoReservarAsientos
 {
@@ -105,7 +106,7 @@ public class ReservarAsientosCommandHandler
             var ahora = _reloj.Ahora;
             var vigentes = await _reservaRepository.ListarVigentesDeFuncion(funcion.Id, ahora, ct);
 
-            var resultado = _reservador.Reservar(funcion, vigentes, command.ClienteId, pedidos, ahora, _reglas);
+            var resultado = _reservador.Reservar(funcion, vigentes, command.Comprador, pedidos, ahora, _reglas);
 
             switch (resultado.Tipo)
             {
@@ -122,7 +123,7 @@ public class ReservarAsientosCommandHandler
             var reserva = resultado.Reserva!;
 
             await _reservaRepository.Agregar(reserva, ct);
-            _outbox.Registrar(new ReservaCreada(reserva.Id, reserva.FuncionId, reserva.Asientos, reserva.VenceEn, ahora,
+            _outbox.Registrar(new ReservaCreada(reserva.Id, reserva.FuncionId, reserva.Comprador.Valor, reserva.Asientos, reserva.VenceEn, ahora,
                 reserva.PrecioUnitario, reserva.Total));
 
             var sala = funcion.Sala;
@@ -148,8 +149,8 @@ public class ReservarAsientosCommandHandler
         if (pedidos is null || pedidos.Count == 0)
             return (null, Error("Debe indicar al menos un asiento."));
 
-        if (pedidos.Count > _reglas.MaximoAsientosPorCliente)
-            errores.Add($"Una reserva admite como máximo {_reglas.MaximoAsientosPorCliente} asientos.");
+        if (pedidos.Count > _reglas.MaximoAsientosPorComprador)
+            errores.Add($"Una reserva admite como máximo {_reglas.MaximoAsientosPorComprador} asientos.");
 
         var asientos = new List<Asiento>();
 

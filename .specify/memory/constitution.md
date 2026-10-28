@@ -1,41 +1,48 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.0.1 → 2.0.0
+Version change: 2.0.0 → 3.0.0
 Rationale: MAJOR — redefinición incompatible de un principio (según la política de versionado
-           de Gobernanza). El Principio V deja de ser NO NEGOCIABLE: el testing pasa de
-           obligación general a decisión por criterio, con la reserva concurrente de asientos
-           como única obligación sin excepción.
+           de Gobernanza). El comprador deja de ser un usuario autenticado con rol `Customer`
+           y pasa a ser un invitado identificado por un email verificado. OIDC con JWT bearer
+           queda reservado al personal interno (`CinemaManager`, `Admin`).
 
 Modified principles:
-  - V. "Testing como Ciudadano de Primera Clase (NO NEGOCIABLE)" →
-    "Testing por Criterio — Donde Aporta Valor": criterios explícitos de cuándo testear y
-    cuándo no; se elimina la obligación general de unitarios de Domain y de integración para
-    todo caso de uso que modifica estado; se mantiene obligatorio el test de concurrencia de
-    reservas y la regla de usar Postgres real (Testcontainers, no InMemory) al testear
-    persistencia; se agrega cómo aplicar el criterio en /speckit-plan y /speckit-tasks.
+  - VII. "Autenticación y Autorización Explícitas" (mismo título), contenido redefinido:
+    * Se elimina el rol `Customer` y la exigencia de JWT/OIDC para quien reserva o paga.
+    * OIDC con JWT bearer y RBAC se mantienen solo para `CinemaManager` y `Admin`; la Api sigue
+      sin gestionar contraseñas.
+    * Se introduce el acceso de invitado verificado: el comprador se identifica con un email
+      verificado y accede a sus reservas con una credencial verificable (token de acceso a la
+      reserva o email verificado). Conocer el id o el email de una reserva NO alcanza.
+    * Se mantiene la regla de autorización explícita: todo endpoint declara su modalidad
+      (público, invitado verificado o personal con rol) y el fallback es cerrado.
 
 Modified sections:
-  - Flujo de Desarrollo y Puertas de Calidad: puertas de CI 2 y 3 reescritas para ser
-    coherentes con el nuevo Principio V (pasan todos los tests existentes; la reserva de
-    asientos exige su test de concurrencia).
+  - Restricciones de Plataforma y Tecnología: integraciones externas actuales pasan a ser
+    Stripe, un proveedor OIDC (solo personal interno) y un servicio de envío de email
+    (verificación del invitado).
 
 Added sections: ninguna
 
 Removed sections: ninguna
 
 Templates / archivos dependientes revisados:
-  ✅ .specify/templates/plan-template.md — "Constitution Check" sigue siendo compatible (referencia genérica)
-  ✅ .specify/templates/spec-template.md — sin referencias directas a principios
-  ✅ .specify/templates/tasks-template.md — dice "Tests are OPTIONAL"; compatible: el Principio V
-    define ahora el criterio para incluirlos
+  ✅ .specify/templates/plan-template.md — "Constitution Check" genérico; sin referencias a Customer/OIDC
+  ✅ .specify/templates/spec-template.md — sin referencias a roles ni autenticación
+  ✅ .specify/templates/tasks-template.md — sin referencias a roles ni autenticación
   ⚠ .claude/ (comandos speckit) — leen esta constitución en runtime; no requieren cambios
-  ⚠ README.md — la sección "Testing" describe el testing como "principio no negociable";
-    queda desactualizada (fuera del alcance de este comando)
-  ℹ specs/001–003 — sus tests ya existentes se mantienen; no se eliminan retroactivamente
+  ⚠ Código y specs existentes siguen el modelo anterior y quedan desalineados hasta la
+    feature de identidad del invitado:
+    - src/…Api/Program.cs (política `Customer`, JwtBearer) y ReservasController
+    - specs/004-reserva-asientos-funcion (spec, plan, research Decisión 7, contracts, quickstart)
+    - README.md (secciones de autenticación y endpoints 🔒 `Customer`)
+  ℹ specs/001–003 y 005 — endpoints públicos o sin dependencia del rol; sin cambios
 
 Follow-up TODOs:
-  - Actualizar la sección "Testing" del README.md para reflejar el Principio V v2.0.0.
+  - Especificar la identidad del comprador invitado con email (nueva feature) y migrar la
+    feature 004 a ese modelo; hasta entonces el código vigente incumple el Principio VII v3.0.0.
+  - Actualizar README.md (autenticación, endpoints y "Deuda técnica conocida").
 -->
 
 # Sistema de Reserva de Entradas de Cine — Constitución
@@ -168,15 +175,24 @@ confirmado.
 
 ### VII. Autenticación y Autorización Explícitas
 
-- La autenticación **DEBE** realizarse vía OIDC con JWT bearer; la `Api` valida el token y no
-  gestiona contraseñas.
-- La autorización **DEBE** ser RBAC declarada explícitamente por endpoint o caso de uso, usando
-  los roles `Customer`, `CinemaManager` y `Admin`.
-- **NO DEBE** existir autorización implícita: un endpoint sin política de autorización declarada
-  se considera un defecto, no un endpoint público. Los endpoints públicos se marcan de forma
+- El comprador (quien reserva y paga entradas) **NO DEBE** necesitar cuenta ni contraseña. Es un
+  **invitado** identificado por un email que **DEBE** verificarse antes de concederle acceso a
+  sus reservas. El rol `Customer` no existe.
+- El acceso de un invitado a una reserva **DEBE** probarse con una credencial verificable (un
+  token de acceso a la reserva o un email verificado). **NO DEBE** ser posible acceder a una
+  reserva ajena conociendo solo su id o su email.
+- El personal interno se autentica vía OIDC con JWT bearer; la `Api` valida el token y no
+  gestiona contraseñas. Su autorización **DEBE** ser RBAC declarada explícitamente por endpoint o
+  caso de uso, usando los roles `CinemaManager` y `Admin`.
+- **NO DEBE** existir autorización implícita: un endpoint sin modalidad de acceso declarada
+  (público, invitado verificado o personal con rol) se considera un defecto, no un endpoint
+  público. El fallback **DEBE** ser cerrado y los endpoints públicos se marcan de forma
   explícita.
 
-**Rationale**: la seguridad implícita es la principal fuente de exposición accidental; exigir
+**Rationale**: en un cine se compra un boleto sin crear una cuenta; exigirla agrega fricción sin
+aportar seguridad útil al comprador. Aun así, retener asientos requiere saber quién es el dueño de
+la reserva (para el tope por cliente, la cancelación y el pago), y un email sin verificar es
+falsificable. La seguridad implícita es la principal fuente de exposición accidental; exigir
 declaración explícita convierte cada omisión en algo visible en revisión.
 
 ### VIII. Calidad de Código
@@ -200,8 +216,9 @@ caras de introducir después; mantienen el código predecible y escalable.
   (REST/JSON) y un hub de SignalR para notificaciones en tiempo real hacia clientes externos.
 - Persistencia mediante EF Core contra un motor relacional real (el mismo motor en desarrollo,
   pruebas de integración y producción).
-- Integraciones externas actuales: Stripe (pagos) y un proveedor OIDC (identidad). Ambas se
-  consumen a través de puertos según el Principio IV.
+- Integraciones externas actuales: Stripe (pagos), un servicio de envío de email (verificación
+  del invitado) y un proveedor OIDC (identidad del personal interno). Todas se consumen a
+  través de puertos según el Principio IV.
 - Estructura de proyectos: `Domain`, `Application`, `Infrastructure`, `Api`, más proyectos de
   test (`*.UnitTests`, `*.IntegrationTests`).
 
@@ -237,4 +254,4 @@ caras de introducir después; mantienen el código predecible y escalable.
 - Para guía de desarrollo en runtime, los comandos de Spec Kit (`/speckit-plan`,
   `/speckit-tasks`, `/speckit-implement`) leen esta constitución como fuente de verdad.
 
-**Version**: 2.0.0 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-10-27
+**Version**: 3.0.0 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-10-27

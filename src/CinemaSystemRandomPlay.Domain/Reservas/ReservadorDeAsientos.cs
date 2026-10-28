@@ -1,3 +1,4 @@
+using CinemaSystemRandomPlay.Domain.Compradores;
 using CinemaSystemRandomPlay.Domain.Funciones;
 
 namespace CinemaSystemRandomPlay.Domain.Reservas;
@@ -29,7 +30,7 @@ public sealed record ResultadoReserva(
 }
 
 /// <summary>
-/// Reglas que cruzan reservas: un asiento no puede estar retenido dos veces y un Cliente no puede retener
+/// Reglas que cruzan reservas: un asiento no puede estar retenido dos veces y un comprador no puede retener
 /// más del máximo en una misma función. Quien lo invoca debe haber serializado los pedidos de la función.
 /// </summary>
 public class ReservadorDeAsientos
@@ -37,7 +38,7 @@ public class ReservadorDeAsientos
     public ResultadoReserva Reservar(
         Funcion funcion,
         IReadOnlyList<Reserva> reservasDeLaFuncion,
-        string clienteId,
+        EmailComprador comprador,
         IReadOnlyList<Asiento> pedidos,
         DateTimeOffset ahora,
         ReglasReserva reglas)
@@ -56,13 +57,13 @@ public class ReservadorDeAsientos
         if (noDisponibles.Count > 0)
             return ResultadoReserva.AsientosNoDisponibles(noDisponibles);
 
-        var retenidosDelCliente = vigentes.Where(r => r.ClienteId == clienteId).Sum(r => r.Asientos.Count);
-        if (retenidosDelCliente + pedidos.Count > reglas.MaximoAsientosPorCliente)
-            return ResultadoReserva.LimiteSuperado(Math.Max(0, reglas.MaximoAsientosPorCliente - retenidosDelCliente));
+        var retenidosDelComprador = vigentes.Where(r => r.Comprador == comprador).Sum(r => r.Asientos.Count);
+        if (retenidosDelComprador + pedidos.Count > reglas.MaximoAsientosPorComprador)
+            return ResultadoReserva.LimiteSuperado(Math.Max(0, reglas.MaximoAsientosPorComprador - retenidosDelComprador));
 
         var venceEn = Minimo(ahora.AddMinutes(reglas.MinutosRetencion), funcion.FechaHoraInicio);
 
-        return ResultadoReserva.Ok(Reserva.Crear(Guid.NewGuid(), funcion.Id, clienteId, pedidos, funcion.PrecioEntrada, ahora, venceEn, reglas.MaximoAsientosPorCliente));
+        return ResultadoReserva.Ok(Reserva.Crear(Guid.NewGuid(), funcion.Id, comprador, pedidos, funcion.PrecioEntrada, ahora, venceEn, reglas.MaximoAsientosPorComprador));
     }
 
     private static IReadOnlyList<Asiento> Ordenados(IEnumerable<Asiento> asientos) =>

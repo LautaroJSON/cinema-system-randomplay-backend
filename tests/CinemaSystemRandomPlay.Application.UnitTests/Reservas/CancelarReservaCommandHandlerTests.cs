@@ -7,6 +7,8 @@ using CinemaSystemRandomPlay.Domain.Reservas;
 using CinemaSystemRandomPlay.Domain.Reservas.Eventos;
 using NSubstitute;
 using static CinemaSystemRandomPlay.Application.UnitTests.Reservas.ReservasTestSupport;
+using CinemaSystemRandomPlay.Domain.Compradores;
+using static CinemaSystemRandomPlay.Application.UnitTests.CompradoresDePrueba;
 
 namespace CinemaSystemRandomPlay.Application.UnitTests.Reservas;
 
@@ -25,7 +27,7 @@ public class CancelarReservaCommandHandlerTests
 
     private CancelarReservaCommandHandler CrearHandler() => new(_unidadDeTrabajo, _reservaRepository, _consulta, _outbox, _reloj);
 
-    private Reserva CrearReserva(string cliente, DateTimeOffset creadaEn)
+    private Reserva CrearReserva(EmailComprador cliente, DateTimeOffset creadaEn)
     {
         var (funcion, _) = CrearFuncion();
         var reserva = new ReservadorDeAsientos().Reservar(funcion, [], cliente, [new Asiento('A', 1)], creadaEn, new ReglasReserva()).Reserva!;
@@ -40,10 +42,10 @@ public class CancelarReservaCommandHandlerTests
     [Fact]
     public async Task Handle_ReservaPropiaVigente_LaCancelaYRegistraElEvento()
     {
-        var reserva = CrearReserva("ana", Ahora);
-        _consulta.ObtenerDeCliente(reserva.Id, "ana", Arg.Any<CancellationToken>()).Returns(LecturaCancelada(reserva));
+        var reserva = CrearReserva(Ana, Ahora);
+        _consulta.ObtenerDeComprador(reserva.Id, Ana, Arg.Any<CancellationToken>()).Returns(LecturaCancelada(reserva));
 
-        var resultado = await CrearHandler().Handle(new CancelarReservaCommand(reserva.Id, "ana"));
+        var resultado = await CrearHandler().Handle(new CancelarReservaCommand(reserva.Id, Ana));
 
         Assert.Equal(EstadoCancelarReserva.Ok, resultado.Estado);
         Assert.Equal(EstadoReserva.Cancelada, resultado.Reserva!.Estado);
@@ -54,7 +56,7 @@ public class CancelarReservaCommandHandlerTests
     [Fact]
     public async Task Handle_ReservaInexistente_DevuelveNoEncontrada()
     {
-        var resultado = await CrearHandler().Handle(new CancelarReservaCommand(Guid.NewGuid(), "ana"));
+        var resultado = await CrearHandler().Handle(new CancelarReservaCommand(Guid.NewGuid(), Ana));
 
         Assert.Equal(EstadoCancelarReserva.ReservaNoEncontrada, resultado.Estado);
         _outbox.DidNotReceive().Registrar(Arg.Any<object>());
@@ -63,9 +65,9 @@ public class CancelarReservaCommandHandlerTests
     [Fact]
     public async Task Handle_ReservaAjena_DevuelveNoEncontradaYNoLaToca()
     {
-        var reserva = CrearReserva("ana", Ahora);
+        var reserva = CrearReserva(Ana, Ahora);
 
-        var resultado = await CrearHandler().Handle(new CancelarReservaCommand(reserva.Id, "beto"));
+        var resultado = await CrearHandler().Handle(new CancelarReservaCommand(reserva.Id, Beto));
 
         Assert.Equal(EstadoCancelarReserva.ReservaNoEncontrada, resultado.Estado);
         Assert.Equal(EstadoReserva.PendienteDePago, reserva.Estado);
@@ -75,9 +77,9 @@ public class CancelarReservaCommandHandlerTests
     [Fact]
     public async Task Handle_ReservaVencida_DevuelveNoCancelableConElEstadoActual()
     {
-        var reserva = CrearReserva("ana", Ahora.AddMinutes(-20));
+        var reserva = CrearReserva(Ana, Ahora.AddMinutes(-20));
 
-        var resultado = await CrearHandler().Handle(new CancelarReservaCommand(reserva.Id, "ana"));
+        var resultado = await CrearHandler().Handle(new CancelarReservaCommand(reserva.Id, Ana));
 
         Assert.Equal(EstadoCancelarReserva.NoCancelable, resultado.Estado);
         Assert.Equal(EstadoReserva.Expirada, resultado.EstadoActual);
@@ -87,10 +89,10 @@ public class CancelarReservaCommandHandlerTests
     [Fact]
     public async Task Handle_ReservaYaCancelada_DevuelveNoCancelableCancelada()
     {
-        var reserva = CrearReserva("ana", Ahora);
+        var reserva = CrearReserva(Ana, Ahora);
         reserva.Cancelar(Ahora);
 
-        var resultado = await CrearHandler().Handle(new CancelarReservaCommand(reserva.Id, "ana"));
+        var resultado = await CrearHandler().Handle(new CancelarReservaCommand(reserva.Id, Ana));
 
         Assert.Equal(EstadoCancelarReserva.NoCancelable, resultado.Estado);
         Assert.Equal(EstadoReserva.Cancelada, resultado.EstadoActual);

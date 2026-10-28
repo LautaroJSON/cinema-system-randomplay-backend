@@ -2,12 +2,13 @@ using CinemaSystemRandomPlay.Application.Compartido.Ports;
 using CinemaSystemRandomPlay.Application.Reservas.Dtos;
 using CinemaSystemRandomPlay.Application.Reservas.Ports;
 using CinemaSystemRandomPlay.Domain.Compartido;
+using CinemaSystemRandomPlay.Domain.Compradores;
 using CinemaSystemRandomPlay.Domain.Reservas;
 using CinemaSystemRandomPlay.Domain.Reservas.Eventos;
 
 namespace CinemaSystemRandomPlay.Application.Reservas.Commands;
 
-public record CancelarReservaCommand(Guid ReservaId, string ClienteId);
+public record CancelarReservaCommand(Guid ReservaId, EmailComprador Comprador);
 
 public enum EstadoCancelarReserva
 {
@@ -53,7 +54,7 @@ public class CancelarReservaCommandHandler
         {
             var reserva = await _reservaRepository.ObtenerPorId(command.ReservaId, ct);
 
-            if (reserva is null || reserva.ClienteId != command.ClienteId)
+            if (reserva is null || reserva.Comprador != command.Comprador)
                 return CancelarReservaResultado.ReservaNoEncontrada();
 
             var ahora = _reloj.Ahora;
@@ -71,7 +72,7 @@ public class CancelarReservaCommandHandler
             return resultado;
 
         // La lectura va después de confirmar la transacción para ver la reserva ya cancelada.
-        var lectura = await _consultaReservas.ObtenerDeCliente(command.ReservaId, command.ClienteId, cancellationToken);
+        var lectura = await _consultaReservas.ObtenerDeComprador(command.ReservaId, command.Comprador, cancellationToken);
 
         return CancelarReservaResultado.Ok(ReservaDto.DesdeLectura(lectura!, _reloj.Ahora));
     }

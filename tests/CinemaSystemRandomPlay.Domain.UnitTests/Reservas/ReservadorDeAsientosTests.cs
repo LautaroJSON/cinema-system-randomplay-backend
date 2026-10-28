@@ -2,6 +2,8 @@ using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Domain.Reservas;
 using static CinemaSystemRandomPlay.Domain.UnitTests.Reservas.ReservaFactory;
+using CinemaSystemRandomPlay.Domain.Compradores;
+using static CinemaSystemRandomPlay.Domain.UnitTests.CompradoresDePrueba;
 
 namespace CinemaSystemRandomPlay.Domain.UnitTests.Reservas;
 
@@ -10,7 +12,7 @@ public class ReservadorDeAsientosTests
     private readonly ReservadorDeAsientos _reservador = new();
     private readonly ReglasReserva _reglas = new();
 
-    private ResultadoReserva Reservar(Funcion funcion, IReadOnlyList<Reserva> existentes, string cliente, params Asiento[] pedidos) =>
+    private ResultadoReserva Reservar(Funcion funcion, IReadOnlyList<Reserva> existentes, EmailComprador cliente, params Asiento[] pedidos) =>
         _reservador.Reservar(funcion, existentes, cliente, pedidos, Ahora, _reglas);
 
     [Fact]
@@ -18,11 +20,11 @@ public class ReservadorDeAsientosTests
     {
         var funcion = CrearFuncion();
 
-        var resultado = Reservar(funcion, [], "ana", new Asiento('C', 5), new Asiento('C', 6));
+        var resultado = Reservar(funcion, [], Ana, new Asiento('C', 5), new Asiento('C', 6));
 
         Assert.Equal(TipoResultadoReserva.Ok, resultado.Tipo);
         var reserva = resultado.Reserva!;
-        Assert.Equal("ana", reserva.ClienteId);
+        Assert.Equal(Ana, reserva.Comprador);
         Assert.Equal(funcion.Id, reserva.FuncionId);
         Assert.Equal(EstadoReserva.PendienteDePago, reserva.Estado);
         Assert.Equal(Ahora, reserva.CreadaEn);
@@ -35,7 +37,7 @@ public class ReservadorDeAsientosTests
     {
         var funcion = CrearFuncion();
 
-        var reserva = Reservar(funcion, [], "ana", new Asiento('C', 5), new Asiento('C', 6), new Asiento('C', 7)).Reserva!;
+        var reserva = Reservar(funcion, [], Ana, new Asiento('C', 5), new Asiento('C', 6), new Asiento('C', 7)).Reserva!;
 
         Assert.Equal(funcion.PrecioEntrada, reserva.PrecioUnitario);
         Assert.Equal(Dinero.Ars(16500m), reserva.Total);
@@ -46,7 +48,7 @@ public class ReservadorDeAsientosTests
     {
         var funcion = CrearFuncion(Ahora.AddMinutes(4));
 
-        var resultado = Reservar(funcion, [], "ana", new Asiento('A', 1));
+        var resultado = Reservar(funcion, [], Ana, new Asiento('A', 1));
 
         Assert.Equal(Ahora.AddMinutes(4), resultado.Reserva!.VenceEn);
     }
@@ -56,7 +58,7 @@ public class ReservadorDeAsientosTests
     {
         var funcion = CrearFuncion(Ahora.AddMinutes(-1));
 
-        var resultado = Reservar(funcion, [], "ana", new Asiento('A', 1));
+        var resultado = Reservar(funcion, [], Ana, new Asiento('A', 1));
 
         Assert.Equal(TipoResultadoReserva.FuncionNoDisponible, resultado.Tipo);
     }
@@ -66,7 +68,7 @@ public class ReservadorDeAsientosTests
     {
         var funcion = CrearFuncion();
 
-        var resultado = Reservar(funcion, [], "ana", new Asiento('Z', 1), new Asiento('A', 15), new Asiento('A', 1));
+        var resultado = Reservar(funcion, [], Ana, new Asiento('Z', 1), new Asiento('A', 15), new Asiento('A', 1));
 
         Assert.Equal(TipoResultadoReserva.AsientosInexistentes, resultado.Tipo);
         Assert.Equal([new Asiento('A', 15), new Asiento('Z', 1)], resultado.Asientos);
@@ -76,9 +78,9 @@ public class ReservadorDeAsientosTests
     public void Reservar_AsientoRetenidoPorOtroCliente_DevuelveAsientosNoDisponibles()
     {
         var funcion = CrearFuncion();
-        var existente = ReservaDe(funcion, "beto", Ahora, new Asiento('C', 5));
+        var existente = ReservaDe(funcion, Beto, Ahora, new Asiento('C', 5));
 
-        var resultado = Reservar(funcion, [existente], "ana", new Asiento('C', 4), new Asiento('C', 5), new Asiento('C', 6));
+        var resultado = Reservar(funcion, [existente], Ana, new Asiento('C', 4), new Asiento('C', 5), new Asiento('C', 6));
 
         Assert.Equal(TipoResultadoReserva.AsientosNoDisponibles, resultado.Tipo);
         Assert.Equal([new Asiento('C', 5)], resultado.Asientos);
@@ -88,9 +90,9 @@ public class ReservadorDeAsientosTests
     public void Reservar_AsientoDeReservaVencida_EstaDisponible()
     {
         var funcion = CrearFuncion();
-        var vencida = ReservaDe(funcion, "beto", Ahora.AddMinutes(-10), new Asiento('C', 5));
+        var vencida = ReservaDe(funcion, Beto, Ahora.AddMinutes(-10), new Asiento('C', 5));
 
-        var resultado = Reservar(funcion, [vencida], "ana", new Asiento('C', 5));
+        var resultado = Reservar(funcion, [vencida], Ana, new Asiento('C', 5));
 
         Assert.Equal(TipoResultadoReserva.Ok, resultado.Tipo);
     }
@@ -99,10 +101,10 @@ public class ReservadorDeAsientosTests
     public void Reservar_ReservaCanceladaNoRetieneAsientos()
     {
         var funcion = CrearFuncion();
-        var cancelada = ReservaDe(funcion, "beto", Ahora, new Asiento('C', 5));
+        var cancelada = ReservaDe(funcion, Beto, Ahora, new Asiento('C', 5));
         cancelada.Cancelar(Ahora);
 
-        var resultado = Reservar(funcion, [cancelada], "ana", new Asiento('C', 5));
+        var resultado = Reservar(funcion, [cancelada], Ana, new Asiento('C', 5));
 
         Assert.Equal(TipoResultadoReserva.Ok, resultado.Tipo);
     }
@@ -111,21 +113,44 @@ public class ReservadorDeAsientosTests
     public void Reservar_SuperaElTopeDelCliente_DevuelveLimiteSuperadoConLosRestantes()
     {
         var funcion = CrearFuncion();
-        var previa = ReservaDe(funcion, "ana", Ahora, Enumerable.Range(1, 7).Select(n => new Asiento('A', n)).ToArray());
+        var previa = ReservaDe(funcion, Ana, Ahora, Enumerable.Range(1, 7).Select(n => new Asiento('A', n)).ToArray());
 
-        var resultado = Reservar(funcion, [previa], "ana", Enumerable.Range(1, 4).Select(n => new Asiento('B', n)).ToArray());
+        var resultado = Reservar(funcion, [previa], Ana, Enumerable.Range(1, 4).Select(n => new Asiento('B', n)).ToArray());
 
         Assert.Equal(TipoResultadoReserva.LimiteSuperado, resultado.Tipo);
         Assert.Equal(3, resultado.AsientosRestantes);
     }
 
     [Fact]
+    public void Reservar_ElTopeSeCuentaPorEmailNormalizado_AunqueSeEscribaConOtrasMayusculasYEspacios()
+    {
+        var funcion = CrearFuncion();
+        var previa = ReservaDe(funcion, EmailComprador.Crear("ana@example.com"), Ahora, Enumerable.Range(1, 7).Select(n => new Asiento('A', n)).ToArray());
+
+        var resultado = Reservar(funcion, [previa], EmailComprador.Crear("ANA@example.com "), Enumerable.Range(1, 4).Select(n => new Asiento('B', n)).ToArray());
+
+        Assert.Equal(TipoResultadoReserva.LimiteSuperado, resultado.Tipo);
+        Assert.Equal(3, resultado.AsientosRestantes);
+    }
+
+    [Fact]
+    public void Reservar_ElTopeNoCuentaLosAliasDeProveedorComoElMismoComprador()
+    {
+        var funcion = CrearFuncion();
+        var previa = ReservaDe(funcion, EmailComprador.Crear("ana@example.com"), Ahora, Enumerable.Range(1, 10).Select(n => new Asiento('A', n)).ToArray());
+
+        var resultado = Reservar(funcion, [previa], EmailComprador.Crear("ana+1@example.com"), new Asiento('B', 1));
+
+        Assert.Equal(TipoResultadoReserva.Ok, resultado.Tipo);
+    }
+
+    [Fact]
     public void Reservar_ElTopeNoCuentaLasReservasDeOtrosClientes()
     {
         var funcion = CrearFuncion();
-        var deBeto = ReservaDe(funcion, "beto", Ahora, Enumerable.Range(1, 10).Select(n => new Asiento('A', n)).ToArray());
+        var deBeto = ReservaDe(funcion, Beto, Ahora, Enumerable.Range(1, 10).Select(n => new Asiento('A', n)).ToArray());
 
-        var resultado = Reservar(funcion, [deBeto], "ana", Enumerable.Range(1, 10).Select(n => new Asiento('B', n)).ToArray());
+        var resultado = Reservar(funcion, [deBeto], Ana, Enumerable.Range(1, 10).Select(n => new Asiento('B', n)).ToArray());
 
         Assert.Equal(TipoResultadoReserva.Ok, resultado.Tipo);
     }
@@ -134,10 +159,10 @@ public class ReservadorDeAsientosTests
     public void Reservar_ConVariosErrores_InformaPrimeroInexistentesLuegoNoDisponiblesYLuegoLimite()
     {
         var funcion = CrearFuncion();
-        var previa = ReservaDe(funcion, "ana", Ahora, Enumerable.Range(1, 9).Select(n => new Asiento('A', n)).ToArray());
+        var previa = ReservaDe(funcion, Ana, Ahora, Enumerable.Range(1, 9).Select(n => new Asiento('A', n)).ToArray());
 
-        var inexistentesYOcupados = Reservar(funcion, [previa], "ana", new Asiento('Z', 1), new Asiento('A', 1));
-        var ocupadosYLimite = Reservar(funcion, [previa], "ana", new Asiento('A', 1), new Asiento('B', 1), new Asiento('B', 2));
+        var inexistentesYOcupados = Reservar(funcion, [previa], Ana, new Asiento('Z', 1), new Asiento('A', 1));
+        var ocupadosYLimite = Reservar(funcion, [previa], Ana, new Asiento('A', 1), new Asiento('B', 1), new Asiento('B', 2));
 
         Assert.Equal(TipoResultadoReserva.AsientosInexistentes, inexistentesYOcupados.Tipo);
         Assert.Equal(TipoResultadoReserva.AsientosNoDisponibles, ocupadosYLimite.Tipo);
@@ -148,7 +173,7 @@ public class ReservadorDeAsientosTests
     {
         var funcion = CrearFuncion(Ahora.AddMinutes(-5));
 
-        var resultado = Reservar(funcion, [], "ana", new Asiento('Z', 1));
+        var resultado = Reservar(funcion, [], Ana, new Asiento('Z', 1));
 
         Assert.Equal(TipoResultadoReserva.FuncionNoDisponible, resultado.Tipo);
     }

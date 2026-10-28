@@ -1,9 +1,11 @@
 using System.Net.Http.Headers;
+using CinemaSystemRandomPlay.Application.Verificaciones.Ports;
 using CinemaSystemRandomPlay.Domain.Catalogo;
 using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Infrastructure.Persistence;
 using CinemaSystemRandomPlay.IntegrationTests.Compartido;
+using CinemaSystemRandomPlay.IntegrationTests.Invitados;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -32,6 +34,11 @@ public class ReservasApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public RelojDePrueba Reloj { get; } = new();
 
+    public EnviadorDeEmailEnMemoria Email { get; } = new();
+
+    /// <summary>Configuración adicional de una factory derivada (por ejemplo, un límite por origen más bajo).</summary>
+    protected virtual IReadOnlyDictionary<string, string?> ConfiguracionAdicional => new Dictionary<string, string?>();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -40,14 +47,21 @@ public class ReservasApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:CinemaDb"] = _postgres.ConnectionString
+                // Alto por defecto para que los tests no se interfieran; el test del límite por origen lo baja.
+                ["Invitados:SolicitudesPorOrigen"] = "1000",
+                ["ConnectionStrings:CinemaDb"] = _postgres.ConnectionString,
+                ["Invitados:ClaveFirma"] = TokensDePrueba.ClaveFirmaDePrueba
             });
+            configBuilder.AddInMemoryCollection(ConfiguracionAdicional);
         });
 
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IReloj>();
             services.AddSingleton<IReloj>(Reloj);
+
+            services.RemoveAll<IEnviadorDeEmail>();
+            services.AddSingleton<IEnviadorDeEmail>(Email);
 
             services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
             {

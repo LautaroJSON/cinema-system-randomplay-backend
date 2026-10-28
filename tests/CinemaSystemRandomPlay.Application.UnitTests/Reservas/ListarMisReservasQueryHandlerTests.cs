@@ -5,6 +5,8 @@ using CinemaSystemRandomPlay.Domain.Funciones;
 using CinemaSystemRandomPlay.Domain.Reservas;
 using NSubstitute;
 using static CinemaSystemRandomPlay.Application.UnitTests.Reservas.ReservasTestSupport;
+using CinemaSystemRandomPlay.Domain.Compradores;
+using static CinemaSystemRandomPlay.Application.UnitTests.CompradoresDePrueba;
 
 namespace CinemaSystemRandomPlay.Application.UnitTests.Reservas;
 
@@ -29,9 +31,9 @@ public class ListarMisReservasQueryHandlerTests
         var vieja = Lectura(Ahora.AddMinutes(-30), Ahora.AddMinutes(-20));
         var nueva = Lectura(Ahora.AddMinutes(-1), Ahora.AddMinutes(9));
         var media = Lectura(Ahora.AddMinutes(-15), Ahora.AddMinutes(-5));
-        _consulta.ListarDeCliente("ana", Arg.Any<CancellationToken>()).Returns(new[] { vieja, nueva, media });
+        _consulta.ListarDeComprador(Ana, Arg.Any<CancellationToken>()).Returns(new[] { vieja, nueva, media });
 
-        var resultado = await new ListarMisReservasQueryHandler(_consulta, _reloj).Handle(new ListarMisReservasQuery("ana"));
+        var resultado = await new ListarMisReservasQueryHandler(_consulta, _reloj).Handle(new ListarMisReservasQuery(Ana));
 
         Assert.Equal([nueva.Id, media.Id, vieja.Id], resultado.Select(r => r.Id));
     }
@@ -42,9 +44,9 @@ public class ListarMisReservasQueryHandlerTests
         var vigente = Lectura(Ahora.AddMinutes(-1), Ahora.AddMinutes(9));
         var vencida = Lectura(Ahora.AddMinutes(-20), Ahora.AddMinutes(-10));
         var cancelada = Lectura(Ahora.AddMinutes(-5), Ahora.AddMinutes(5), EstadoReserva.Cancelada);
-        _consulta.ListarDeCliente("ana", Arg.Any<CancellationToken>()).Returns(new[] { vigente, vencida, cancelada });
+        _consulta.ListarDeComprador(Ana, Arg.Any<CancellationToken>()).Returns(new[] { vigente, vencida, cancelada });
 
-        var resultado = await new ListarMisReservasQueryHandler(_consulta, _reloj).Handle(new ListarMisReservasQuery("ana"));
+        var resultado = await new ListarMisReservasQueryHandler(_consulta, _reloj).Handle(new ListarMisReservasQuery(Ana));
 
         Assert.Equal(EstadoReserva.PendienteDePago, resultado.Single(r => r.Id == vigente.Id).Estado);
         Assert.Equal(EstadoReserva.Expirada, resultado.Single(r => r.Id == vencida.Id).Estado);
@@ -54,9 +56,9 @@ public class ListarMisReservasQueryHandlerTests
     [Fact]
     public async Task Listar_OrdenaLosAsientosPorFilaYNumero()
     {
-        _consulta.ListarDeCliente("ana", Arg.Any<CancellationToken>()).Returns(new[] { Lectura(Ahora, Ahora.AddMinutes(10)) });
+        _consulta.ListarDeComprador(Ana, Arg.Any<CancellationToken>()).Returns(new[] { Lectura(Ahora, Ahora.AddMinutes(10)) });
 
-        var resultado = await new ListarMisReservasQueryHandler(_consulta, _reloj).Handle(new ListarMisReservasQuery("ana"));
+        var resultado = await new ListarMisReservasQueryHandler(_consulta, _reloj).Handle(new ListarMisReservasQuery(Ana));
 
         Assert.Equal(["A9", "B2"], resultado.Single().Asientos.Select(a => $"{a.Fila}{a.Numero}"));
     }
@@ -65,9 +67,9 @@ public class ListarMisReservasQueryHandlerTests
     public async Task Obtener_ReservaPropia_DevuelveElDetalleConEstadoEfectivo()
     {
         var vencida = Lectura(Ahora.AddMinutes(-20), Ahora.AddMinutes(-10));
-        _consulta.ObtenerDeCliente(vencida.Id, "ana", Arg.Any<CancellationToken>()).Returns(vencida);
+        _consulta.ObtenerDeComprador(vencida.Id, Ana, Arg.Any<CancellationToken>()).Returns(vencida);
 
-        var resultado = await new ObtenerMiReservaQueryHandler(_consulta, _reloj).Handle(new ObtenerMiReservaQuery(vencida.Id, "ana"));
+        var resultado = await new ObtenerMiReservaQueryHandler(_consulta, _reloj).Handle(new ObtenerMiReservaQuery(vencida.Id, Ana));
 
         Assert.Equal(EstadoReserva.Expirada, resultado!.Estado);
     }
@@ -75,7 +77,7 @@ public class ListarMisReservasQueryHandlerTests
     [Fact]
     public async Task Obtener_ReservaAjenaOInexistente_DevuelveNull()
     {
-        var resultado = await new ObtenerMiReservaQueryHandler(_consulta, _reloj).Handle(new ObtenerMiReservaQuery(Guid.NewGuid(), "beto"));
+        var resultado = await new ObtenerMiReservaQueryHandler(_consulta, _reloj).Handle(new ObtenerMiReservaQuery(Guid.NewGuid(), Beto));
 
         Assert.Null(resultado);
     }

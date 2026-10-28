@@ -1,10 +1,11 @@
 using CinemaSystemRandomPlay.Application.Reservas.Dtos;
 using CinemaSystemRandomPlay.Application.Reservas.Ports;
 using CinemaSystemRandomPlay.Domain.Compartido;
+using CinemaSystemRandomPlay.Domain.Compradores;
 
 namespace CinemaSystemRandomPlay.Application.Reservas.Queries;
 
-public record ListarMisReservasQuery(string ClienteId);
+public record ListarMisReservasQuery(EmailComprador Comprador);
 
 public class ListarMisReservasQueryHandler
 {
@@ -20,7 +21,7 @@ public class ListarMisReservasQueryHandler
     public async Task<IReadOnlyList<ReservaDto>> Handle(ListarMisReservasQuery query, CancellationToken cancellationToken = default)
     {
         var ahora = _reloj.Ahora;
-        var reservas = await _consultaReservas.ListarDeCliente(query.ClienteId, cancellationToken);
+        var reservas = await _consultaReservas.ListarDeComprador(query.Comprador, cancellationToken);
 
         return reservas
             .OrderByDescending(r => r.CreadaEn)
