@@ -1,50 +1,28 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 3.0.0 → 4.0.0
-Rationale: MAJOR — redefinición incompatible de un principio (según la política de versionado
-           de Gobernanza). El comprador deja de identificarse con un email verificado: pasa a
-           ser anónimo y accede a su carrito/reserva con un token de acceso no adivinable. El
-           email se pide solo al confirmar la compra, para entregar la entrada, y no se verifica.
+Version change: 4.0.0 → 4.0.1
+Rationale: PATCH — refinamiento no semántico. Los ejemplos de los Principios II y VI nombraban el
+           agregado `Reserva`, que la feature 007-carrito-anonimo renombró a `Carrito`. Las reglas no
+           cambian.
 
 Modified principles:
-  - VII. "Autenticación y Autorización Explícitas" (mismo título), contenido redefinido:
-    * Se elimina la verificación del email como requisito para reservar o acceder a reservas.
-    * La credencial del comprador es exclusivamente el token de acceso al carrito/reserva
-      (prueba de posesión). Conocer el id ajeno sigue sin alcanzar y responde como inexistente.
-    * El email es un dato de entrega, no una credencial.
-    * Se agregan defensas obligatorias contra el acaparamiento: tope por carrito, límite de
-      creación por origen, tope global por función y un punto de extensión para CAPTCHA.
-    * Las modalidades de acceso pasan a ser: público, portador del carrito y personal con rol.
-      Se mantienen OIDC + JWT bearer + RBAC (`CinemaManager`, `Admin`), sin rol `Customer`,
-      y el fallback cerrado.
-
-Modified sections:
-  - Restricciones de Plataforma y Tecnología: el servicio de envío de email pasa a usarse para
-    la entrega de la entrada (ya no para verificar al invitado).
+  - II. "DDD Ligero — Invariantes en el Dominio": la lista de agregados y el ejemplo de nombres en
+    español pasan de `Reserva` a `Carrito`; el ejemplo de invariante habla del vencimiento del carrito.
+  - VI. "Consistencia de Datos vía Outbox + Eventos": el ejemplo "reserva creada" pasa a "carrito creado".
 
 Added sections: ninguna
 
 Removed sections: ninguna
 
 Templates / archivos dependientes revisados:
-  ✅ .specify/templates/plan-template.md — "Constitution Check" genérico; sin referencias al modelo
-  ✅ .specify/templates/spec-template.md — sin referencias a roles ni autenticación
-  ✅ .specify/templates/tasks-template.md — sin referencias a roles ni autenticación
-  ⚠ .claude/ (comandos speckit) — leen esta constitución en runtime; no requieren cambios
-  ⚠ Código y specs que siguen el modelo v3.0.0 quedan desalineados hasta la feature
-    007-carrito-anonimo:
-    - Dominio/Application/Infrastructure de verificación (`VerificacionEmail`,
-      `ICodigosDeVerificacion`, `IEmisorDeCredencial`), endpoints de verificación, tabla
-      `VerificacionesEmail`, tope de asientos por email y límite de pedidos de código por email
-    - specs/004-reserva-asientos-funcion y specs/006-comprador-invitado-email (históricas)
-    - README.md (autenticación del comprador y endpoints)
-  ℹ specs/001–003 y 005 — endpoints públicos o sin dependencia del modelo; sin cambios
+  ✅ .specify/templates/plan-template.md, spec-template.md, tasks-template.md — sin referencias
+  ✅ Código: el agregado ya se llama `Carrito` (feature 007)
 
-Follow-up TODOs:
-  - Feature 007-carrito-anonimo: implementar el carrito anónimo con token y retirar la
-    verificación por email; hasta entonces el código vigente incumple el Principio VII v4.0.0.
-  - Actualizar README.md (autenticación del comprador, endpoints, "Deuda técnica conocida").
+Follow-up TODOs: ninguno.
+
+Historia: 3.0.0 → 4.0.0 (2026-10-28, MAJOR): Principio VII redefinido para el comprador anónimo con
+token de carrito; email solo de entrega; defensas por carrito, origen y función.
 -->
 
 # Sistema de Reserva de Entradas de Cine — Constitución
@@ -76,10 +54,10 @@ testear el dominio sin arranque de framework y razonar sobre el sistema por capa
 
 ### II. DDD Ligero — Invariantes en el Dominio
 
-Los agregados (`Pelicula`, `Sucursal`, `Sala`, `Funcion`, `Reserva`) encapsulan y protegen sus
+Los agregados (`Pelicula`, `Sucursal`, `Sala`, `Funcion`, `Carrito`) encapsulan y protegen sus
 propias invariantes.
 
-- Reglas como "un asiento no puede reservarse dos veces para una función" o "una reserva expira
+- Reglas como "un asiento no puede reservarse dos veces para una función" o "un carrito vence
   a los N minutos si no se confirma el pago" **DEBEN** vivir dentro del agregado o en un domain
   service, nunca en controllers, handlers de infraestructura ni configuraciones del ORM.
 - El estado de un agregado **DEBE** ser inválido de construir: los constructores y métodos
@@ -89,7 +67,7 @@ propias invariantes.
   `Asiento` y `Dinero`. Los Value Objects son inmutables y validan sus argumentos.
 - El ORM **PUEDE** mapear estos tipos, pero la persistencia no define las reglas.
 - Los tipos del dominio (agregados, entidades y Value Objects) **DEBEN** nombrarse en español
-  (ej. `Pelicula`, `Reserva`, `Asiento`), reflejando el lenguaje ubicuo del negocio en su idioma
+  (ej. `Pelicula`, `Carrito`, `Asiento`), reflejando el lenguaje ubicuo del negocio en su idioma
   original.
 
 **Rationale**: si las invariantes viven en un solo lugar y no se pueden eludir, la corrección
@@ -162,7 +140,7 @@ real y descubrirlas en producción es inaceptable para un sistema de reservas.
 
 Los efectos secundarios externos no se disparan desde dentro de una transacción de negocio.
 
-- Los cambios de estado relevantes (reserva creada, asiento liberado, pago confirmado) **DEBEN**
+- Los cambios de estado relevantes (carrito creado, asiento liberado, pago confirmado) **DEBEN**
   registrarse como filas en una tabla `outbox` dentro de la **misma transacción** que persiste
   el cambio de negocio.
 - Un proceso en background **DEBE** leer la tabla outbox y publicar los eventos hacia el hub de
@@ -268,4 +246,4 @@ caras de introducir después; mantienen el código predecible y escalable.
 - Para guía de desarrollo en runtime, los comandos de Spec Kit (`/speckit-plan`,
   `/speckit-tasks`, `/speckit-implement`) leen esta constitución como fuente de verdad.
 
-**Version**: 4.0.0 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-10-28
+**Version**: 4.0.1 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-10-28
