@@ -1,48 +1,50 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 2.0.0 → 3.0.0
+Version change: 3.0.0 → 4.0.0
 Rationale: MAJOR — redefinición incompatible de un principio (según la política de versionado
-           de Gobernanza). El comprador deja de ser un usuario autenticado con rol `Customer`
-           y pasa a ser un invitado identificado por un email verificado. OIDC con JWT bearer
-           queda reservado al personal interno (`CinemaManager`, `Admin`).
+           de Gobernanza). El comprador deja de identificarse con un email verificado: pasa a
+           ser anónimo y accede a su carrito/reserva con un token de acceso no adivinable. El
+           email se pide solo al confirmar la compra, para entregar la entrada, y no se verifica.
 
 Modified principles:
   - VII. "Autenticación y Autorización Explícitas" (mismo título), contenido redefinido:
-    * Se elimina el rol `Customer` y la exigencia de JWT/OIDC para quien reserva o paga.
-    * OIDC con JWT bearer y RBAC se mantienen solo para `CinemaManager` y `Admin`; la Api sigue
-      sin gestionar contraseñas.
-    * Se introduce el acceso de invitado verificado: el comprador se identifica con un email
-      verificado y accede a sus reservas con una credencial verificable (token de acceso a la
-      reserva o email verificado). Conocer el id o el email de una reserva NO alcanza.
-    * Se mantiene la regla de autorización explícita: todo endpoint declara su modalidad
-      (público, invitado verificado o personal con rol) y el fallback es cerrado.
+    * Se elimina la verificación del email como requisito para reservar o acceder a reservas.
+    * La credencial del comprador es exclusivamente el token de acceso al carrito/reserva
+      (prueba de posesión). Conocer el id ajeno sigue sin alcanzar y responde como inexistente.
+    * El email es un dato de entrega, no una credencial.
+    * Se agregan defensas obligatorias contra el acaparamiento: tope por carrito, límite de
+      creación por origen, tope global por función y un punto de extensión para CAPTCHA.
+    * Las modalidades de acceso pasan a ser: público, portador del carrito y personal con rol.
+      Se mantienen OIDC + JWT bearer + RBAC (`CinemaManager`, `Admin`), sin rol `Customer`,
+      y el fallback cerrado.
 
 Modified sections:
-  - Restricciones de Plataforma y Tecnología: integraciones externas actuales pasan a ser
-    Stripe, un proveedor OIDC (solo personal interno) y un servicio de envío de email
-    (verificación del invitado).
+  - Restricciones de Plataforma y Tecnología: el servicio de envío de email pasa a usarse para
+    la entrega de la entrada (ya no para verificar al invitado).
 
 Added sections: ninguna
 
 Removed sections: ninguna
 
 Templates / archivos dependientes revisados:
-  ✅ .specify/templates/plan-template.md — "Constitution Check" genérico; sin referencias a Customer/OIDC
+  ✅ .specify/templates/plan-template.md — "Constitution Check" genérico; sin referencias al modelo
   ✅ .specify/templates/spec-template.md — sin referencias a roles ni autenticación
   ✅ .specify/templates/tasks-template.md — sin referencias a roles ni autenticación
   ⚠ .claude/ (comandos speckit) — leen esta constitución en runtime; no requieren cambios
-  ⚠ Código y specs existentes siguen el modelo anterior y quedan desalineados hasta la
-    feature de identidad del invitado:
-    - src/…Api/Program.cs (política `Customer`, JwtBearer) y ReservasController
-    - specs/004-reserva-asientos-funcion (spec, plan, research Decisión 7, contracts, quickstart)
-    - README.md (secciones de autenticación y endpoints 🔒 `Customer`)
-  ℹ specs/001–003 y 005 — endpoints públicos o sin dependencia del rol; sin cambios
+  ⚠ Código y specs que siguen el modelo v3.0.0 quedan desalineados hasta la feature
+    007-carrito-anonimo:
+    - Dominio/Application/Infrastructure de verificación (`VerificacionEmail`,
+      `ICodigosDeVerificacion`, `IEmisorDeCredencial`), endpoints de verificación, tabla
+      `VerificacionesEmail`, tope de asientos por email y límite de pedidos de código por email
+    - specs/004-reserva-asientos-funcion y specs/006-comprador-invitado-email (históricas)
+    - README.md (autenticación del comprador y endpoints)
+  ℹ specs/001–003 y 005 — endpoints públicos o sin dependencia del modelo; sin cambios
 
 Follow-up TODOs:
-  - Especificar la identidad del comprador invitado con email (nueva feature) y migrar la
-    feature 004 a ese modelo; hasta entonces el código vigente incumple el Principio VII v3.0.0.
-  - Actualizar README.md (autenticación, endpoints y "Deuda técnica conocida").
+  - Feature 007-carrito-anonimo: implementar el carrito anónimo con token y retirar la
+    verificación por email; hasta entonces el código vigente incumple el Principio VII v4.0.0.
+  - Actualizar README.md (autenticación del comprador, endpoints, "Deuda técnica conocida").
 -->
 
 # Sistema de Reserva de Entradas de Cine — Constitución
@@ -175,25 +177,37 @@ confirmado.
 
 ### VII. Autenticación y Autorización Explícitas
 
-- El comprador (quien reserva y paga entradas) **NO DEBE** necesitar cuenta ni contraseña. Es un
-  **invitado** identificado por un email que **DEBE** verificarse antes de concederle acceso a
-  sus reservas. El rol `Customer` no existe.
-- El acceso de un invitado a una reserva **DEBE** probarse con una credencial verificable (un
-  token de acceso a la reserva o un email verificado). **NO DEBE** ser posible acceder a una
-  reserva ajena conociendo solo su id o su email.
+- El comprador (quien reserva y paga entradas) es **anónimo**: **NO DEBE** necesitar cuenta,
+  contraseña, login ni verificación de email para reservar. El rol `Customer` no existe.
+- Al elegir asientos el comprador obtiene un **carrito** (una reserva pendiente con retención
+  corta) identificado por un **token de acceso** aleatorio y no adivinable. Ese token es la única
+  credencial del comprador: solo quien lo presenta **PUEDE** ver, modificar, abandonar o pagar ese
+  carrito o la reserva que resulte de él.
+- **NO DEBE** ser posible acceder a un carrito o reserva ajena conociendo solo su id ni ningún
+  otro dato del comprador. Ante una credencial ausente o ajena, la respuesta **DEBE** ser la misma
+  que para un recurso inexistente.
+- El email del comprador se pide recién al confirmar la compra, **solo** para entregar la
+  entrada. **NO DEBE** usarse como credencial ni como requisito para reservar, y no se verifica.
+- El sistema **DEBE** defenderse del acaparamiento de asientos con límites explícitos y
+  configurables, como mínimo: tope de asientos por carrito, límite de carritos creados por origen
+  en una ventana de tiempo y tope global de asientos retenidos por función. La creación de
+  carritos **DEBE** exponer un punto de extensión para un desafío anti-bots (CAPTCHA). Los errores
+  de estos límites **DEBEN** usar códigos estables que no revelen datos de otros compradores.
 - El personal interno se autentica vía OIDC con JWT bearer; la `Api` valida el token y no
   gestiona contraseñas. Su autorización **DEBE** ser RBAC declarada explícitamente por endpoint o
   caso de uso, usando los roles `CinemaManager` y `Admin`.
 - **NO DEBE** existir autorización implícita: un endpoint sin modalidad de acceso declarada
-  (público, invitado verificado o personal con rol) se considera un defecto, no un endpoint
+  (público, portador del carrito o personal con rol) se considera un defecto, no un endpoint
   público. El fallback **DEBE** ser cerrado y los endpoints públicos se marcan de forma
   explícita.
 
-**Rationale**: en un cine se compra un boleto sin crear una cuenta; exigirla agrega fricción sin
-aportar seguridad útil al comprador. Aun así, retener asientos requiere saber quién es el dueño de
-la reserva (para el tope por cliente, la cancelación y el pago), y un email sin verificar es
-falsificable. La seguridad implícita es la principal fuente de exposición accidental; exigir
-declaración explícita convierte cada omisión en algo visible en revisión.
+**Rationale**: en un cine se compra un boleto sin crear una cuenta ni verificar nada; exigirlo
+agrega fricción sin frenar el acaparamiento, porque una persona puede verificar tantos emails o
+alias como quiera. El token prueba la posesión del carrito, que es lo único que hace falta para
+operarlo; el acaparamiento se controla donde de verdad se produce, limitando cuántos asientos
+retiene cada carrito, cuántos carritos abre cada origen y cuántos asientos de una función pueden
+estar retenidos a la vez. La seguridad implícita es la principal fuente de exposición accidental;
+exigir declaración explícita convierte cada omisión en algo visible en revisión.
 
 ### VIII. Calidad de Código
 
@@ -216,8 +230,8 @@ caras de introducir después; mantienen el código predecible y escalable.
   (REST/JSON) y un hub de SignalR para notificaciones en tiempo real hacia clientes externos.
 - Persistencia mediante EF Core contra un motor relacional real (el mismo motor en desarrollo,
   pruebas de integración y producción).
-- Integraciones externas actuales: Stripe (pagos), un servicio de envío de email (verificación
-  del invitado) y un proveedor OIDC (identidad del personal interno). Todas se consumen a
+- Integraciones externas actuales: Stripe (pagos), un servicio de envío de email (entrega de
+  la entrada al comprador) y un proveedor OIDC (identidad del personal interno). Todas se consumen a
   través de puertos según el Principio IV.
 - Estructura de proyectos: `Domain`, `Application`, `Infrastructure`, `Api`, más proyectos de
   test (`*.UnitTests`, `*.IntegrationTests`).
@@ -254,4 +268,4 @@ caras de introducir después; mantienen el código predecible y escalable.
 - Para guía de desarrollo en runtime, los comandos de Spec Kit (`/speckit-plan`,
   `/speckit-tasks`, `/speckit-implement`) leen esta constitución como fuente de verdad.
 
-**Version**: 3.0.0 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-10-27
+**Version**: 4.0.0 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-10-28
