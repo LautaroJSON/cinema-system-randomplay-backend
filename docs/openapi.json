@@ -1,0 +1,1367 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Cinema System RandomPlay API",
+    "description": "API de venta de entradas de cine. Flujo del comprador: catálogo de películas → sucursales y horarios de hoy → mapa de asientos de una función → carrito (retiene los asientos unos minutos) → email de entrega.\n\nLos errores de negocio se responden como `application/problem+json` con una extensión `codigo` estable: el cliente decide por `codigo`, no por `title`.",
+    "version": "v1"
+  },
+  "paths": {
+    "/api/funciones/peliculas/{peliculaId}/sucursales-hoy": {
+      "get": {
+        "tags": [
+          "Funciones"
+        ],
+        "summary": "Lista las sucursales que tienen hoy funciones disponibles de la película.",
+        "parameters": [
+          {
+            "name": "peliculaId",
+            "in": "path",
+            "description": "Película.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Las sucursales ordenadas por nombre; lista vacía si hoy no quedan funciones.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SucursalConFuncionesHoyResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SucursalConFuncionesHoyResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SucursalConFuncionesHoyResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La película no existe o no está activa.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/funciones/peliculas/{peliculaId}/sucursales/{sucursalId}/horarios-hoy": {
+      "get": {
+        "tags": [
+          "Funciones"
+        ],
+        "summary": "Lista los horarios de hoy, todavía no comenzados, de la película en una sucursal.",
+        "parameters": [
+          {
+            "name": "peliculaId",
+            "in": "path",
+            "description": "Película.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sucursalId",
+            "in": "path",
+            "description": "Sucursal.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Los horarios ordenados por hora de inicio, con sala y precio; lista vacía si no quedan.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HorarioFuncionResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HorarioFuncionResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HorarioFuncionResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La película no existe o no está activa, o la sucursal no tiene funciones de la película hoy.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/funciones/{funcionId}/asientos": {
+      "get": {
+        "tags": [
+          "Funciones"
+        ],
+        "summary": "Obtiene el mapa de asientos de una función: filas y asientos disponibles.",
+        "description": "Un asiento retenido por un carrito activo figura como no disponible.",
+        "parameters": [
+          {
+            "name": "funcionId",
+            "in": "path",
+            "description": "Función.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "El mapa de asientos con el precio de la entrada.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapaAsientosResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapaAsientosResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapaAsientosResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La función no existe.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "La función ya comenzó.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/catalogo/peliculas": {
+      "get": {
+        "tags": [
+          "Catálogo"
+        ],
+        "summary": "Lista las películas activas del catálogo.",
+        "parameters": [
+          {
+            "name": "titulo",
+            "in": "query",
+            "description": "Filtra por título (coincidencia parcial, sin distinguir mayúsculas). Opcional.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Las películas; lista vacía si ninguna coincide.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PeliculaListItemResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PeliculaListItemResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PeliculaListItemResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/catalogo/peliculas/{id}": {
+      "get": {
+        "tags": [
+          "Catálogo"
+        ],
+        "summary": "Obtiene el detalle de una película activa.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Película.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "El detalle de la película.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeliculaDetalleResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeliculaDetalleResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeliculaDetalleResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La película no existe o no está activa.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/funciones/{funcionId}/carritos": {
+      "post": {
+        "tags": [
+          "Carritos"
+        ],
+        "summary": "Crea un carrito que retiene los asientos elegidos de una función.",
+        "description": "Público y limitado por origen. Los asientos quedan retenidos hasta `venceEn` (unos minutos); después el carrito\nexpira y se liberan. La respuesta trae el `token` del carrito: es la única vez que se entrega y lo exigen todas las\ndemás operaciones como `Authorization: Bearer {token}`.",
+        "parameters": [
+          {
+            "name": "funcionId",
+            "in": "path",
+            "description": "Función cuyos asientos se retienen.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Asientos elegidos (entre 1 y el máximo por carrito, sin repetir) y, opcionalmente, el desafío anti-bots.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearCarritoRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearCarritoRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrearCarritoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Carrito creado; incluye el token de acceso.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoCreadoResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoCreadoResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoCreadoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`pedido-invalido`: sin asientos, demasiados, repetidos o con fila/número mal formados. Ver `errors`.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`desafio-rechazado`: no se superó el desafío anti-bots.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`funcion-no-encontrada`: la función no existe o su película no está activa.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`asientos-no-disponibles` (ver `asientos`) o `funcion-sin-cupo`: la función alcanzó el máximo de asientos retenidos a la vez.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`funcion-no-disponible`: la función ya comenzó.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`asientos-inexistentes`: hay asientos que no existen en la sala (ver `asientos`).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`demasiados-pedidos`: se superó el límite de creaciones desde este origen. Respetar `Retry-After`.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/carritos/{carritoId}": {
+      "get": {
+        "tags": [
+          "Carritos"
+        ],
+        "summary": "Obtiene el carrito del token.",
+        "description": "Sirve para refrescar el estado y el vencimiento; un carrito abandonado o expirado se sigue pudiendo consultar.",
+        "parameters": [
+          {
+            "name": "carritoId",
+            "in": "path",
+            "description": "Carrito del token.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "El carrito.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`carrito-no-encontrado`: no existe o el token es de otro carrito.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta el token o no es válido (vencido, mal firmado o de otro tipo)."
+          }
+        },
+        "security": [
+          {
+            "Invitado": [ ]
+          }
+        ]
+      }
+    },
+    "/api/carritos/{carritoId}/asientos": {
+      "put": {
+        "tags": [
+          "Carritos"
+        ],
+        "summary": "Reemplaza la selección completa de asientos del carrito.",
+        "description": "La lista enviada pasa a ser toda la selección: los asientos que no figuran se liberan. Solo para carritos activos.",
+        "parameters": [
+          {
+            "name": "carritoId",
+            "in": "path",
+            "description": "Carrito del token.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "La nueva selección completa (mismas reglas que al crear).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReemplazarAsientosRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReemplazarAsientosRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReemplazarAsientosRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "El carrito con la nueva selección.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`pedido-invalido`: selección mal formada. Ver `errors`.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`carrito-no-encontrado`: no existe o el token es de otro carrito.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`asientos-no-disponibles` (ver `asientos`), `funcion-sin-cupo` o `carrito-no-activo` (ver `estadoActual`).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`funcion-no-disponible`: la función ya comenzó.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`asientos-inexistentes`: hay asientos que no existen en la sala (ver `asientos`).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta el token o no es válido (vencido, mal firmado o de otro tipo)."
+          }
+        },
+        "security": [
+          {
+            "Invitado": [ ]
+          }
+        ]
+      }
+    },
+    "/api/carritos/{carritoId}/abandono": {
+      "post": {
+        "tags": [
+          "Carritos"
+        ],
+        "summary": "Abandona el carrito y libera sus asientos de inmediato.",
+        "parameters": [
+          {
+            "name": "carritoId",
+            "in": "path",
+            "description": "Carrito del token.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "El carrito, ya en estado `Abandonado`.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`carrito-no-encontrado`: no existe o el token es de otro carrito.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`carrito-no-activo`: ya estaba abandonado o expirado (ver `estadoActual`).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta el token o no es válido (vencido, mal firmado o de otro tipo)."
+          }
+        },
+        "security": [
+          {
+            "Invitado": [ ]
+          }
+        ]
+      }
+    },
+    "/api/carritos/{carritoId}/email-entrega": {
+      "put": {
+        "tags": [
+          "Carritos"
+        ],
+        "summary": "Indica o reemplaza el email al que se enviarán las entradas.",
+        "parameters": [
+          {
+            "name": "carritoId",
+            "in": "path",
+            "description": "Carrito del token.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Email del comprador.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailEntregaRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailEntregaRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailEntregaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "El carrito con el email de entrega.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarritoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`pedido-invalido`: el email es inválido (ver `errors.email`).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`carrito-no-encontrado`: no existe o el token es de otro carrito.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`carrito-no-activo`: el carrito está abandonado o expirado (ver `estadoActual`).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta el token o no es válido (vencido, mal firmado o de otro tipo)."
+          }
+        },
+        "security": [
+          {
+            "Invitado": [ ]
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AsientoRequest": {
+        "required": [
+          "fila",
+          "numero"
+        ],
+        "type": "object",
+        "properties": {
+          "fila": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Una letra mayúscula de A a Z."
+          },
+          "numero": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Número de asiento dentro de la fila, desde 1.",
+            "format": "int32"
+          }
+        }
+      },
+      "AsientoResponse": {
+        "required": [
+          "fila",
+          "numero"
+        ],
+        "type": "object",
+        "properties": {
+          "fila": {
+            "type": "string",
+            "description": "Letra de la fila."
+          },
+          "numero": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Número de asiento dentro de la fila.",
+            "format": "int32"
+          }
+        }
+      },
+      "CarritoCreadoResponse": {
+        "required": [
+          "carrito",
+          "token",
+          "tokenVenceEn"
+        ],
+        "type": "object",
+        "properties": {
+          "carrito": {
+            "description": "El carrito creado.",
+            "$ref": "#/components/schemas/CarritoResponse"
+          },
+          "token": {
+            "type": "string",
+            "description": "JWT de acceso a este carrito. Enviarlo como `Authorization: Bearer {token}` en las demás operaciones."
+          },
+          "tokenVenceEn": {
+            "type": "string",
+            "description": "Vencimiento del token.",
+            "format": "date-time"
+          }
+        },
+        "description": "Respuesta de la creación: la única vez que se entrega el token del carrito."
+      },
+      "CarritoResponse": {
+        "required": [
+          "id",
+          "estado",
+          "creadoEn",
+          "venceEn",
+          "abandonadoEn",
+          "asientos",
+          "funcion",
+          "precioUnitario",
+          "total",
+          "emailEntrega"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "estado": {
+            "type": "string",
+            "description": "`Activo`, `Abandonado` o `Expirado`. Solo un carrito activo retiene asientos y admite cambios."
+          },
+          "creadoEn": {
+            "type": "string",
+            "description": "Momento de creación.",
+            "format": "date-time"
+          },
+          "venceEn": {
+            "type": "string",
+            "description": "Hasta cuándo se retienen los asientos; pasado ese momento el carrito expira.",
+            "format": "date-time"
+          },
+          "abandonadoEn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Momento del abandono; `null` si no fue abandonado.",
+            "format": "date-time"
+          },
+          "asientos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AsientoResponse"
+            },
+            "description": "Asientos retenidos."
+          },
+          "funcion": {
+            "description": "Función a la que pertenecen los asientos.",
+            "$ref": "#/components/schemas/FuncionCarritoResponse"
+          },
+          "precioUnitario": {
+            "description": "Precio de una entrada.",
+            "$ref": "#/components/schemas/DineroResponse"
+          },
+          "total": {
+            "description": "Precio unitario por cantidad de asientos.",
+            "$ref": "#/components/schemas/DineroResponse"
+          },
+          "emailEntrega": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Email al que se enviarán las entradas; `null` hasta que se indique."
+          }
+        },
+        "description": "Carrito del comprador anónimo con los asientos que retiene."
+      },
+      "CrearCarritoRequest": {
+        "required": [
+          "asientos",
+          "desafio"
+        ],
+        "type": "object",
+        "properties": {
+          "asientos": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AsientoRequest"
+            },
+            "description": "Asientos elegidos: al menos uno, hasta el máximo por carrito (10 por defecto), sin repetir."
+          },
+          "desafio": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Respuesta al desafío anti-bots (por ejemplo, el token de un widget de CAPTCHA). Opcional."
+          }
+        }
+      },
+      "DineroResponse": {
+        "required": [
+          "monto",
+          "moneda"
+        ],
+        "type": "object",
+        "properties": {
+          "monto": {
+            "type": "string",
+            "description": "Importe con 2 decimales y punto decimal, por ejemplo `\"4500.00\"`."
+          },
+          "moneda": {
+            "type": "string",
+            "description": "Código de moneda; hoy siempre `ARS`."
+          }
+        },
+        "description": "Monto para el cliente externo: texto con exactamente 2 decimales y punto decimal, nunca un número."
+      },
+      "EmailEntregaRequest": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Email al que se enviarán las entradas."
+          }
+        }
+      },
+      "FilaMapaResponse": {
+        "required": [
+          "fila",
+          "cantidadAsientos",
+          "asientosDisponibles"
+        ],
+        "type": "object",
+        "properties": {
+          "fila": {
+            "type": "string",
+            "description": "Letra de la fila."
+          },
+          "cantidadAsientos": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Asientos de la fila, numerados de 1 a este valor.",
+            "format": "int32"
+          },
+          "asientosDisponibles": {
+            "type": "array",
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            },
+            "description": "Números de los asientos libres de la fila; los que faltan están ocupados o retenidos."
+          }
+        }
+      },
+      "FuncionCarritoResponse": {
+        "required": [
+          "funcionId",
+          "horaInicio",
+          "peliculaId",
+          "peliculaTitulo",
+          "sucursalId",
+          "sucursalNombre",
+          "salaId",
+          "salaNombre"
+        ],
+        "type": "object",
+        "properties": {
+          "funcionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "horaInicio": {
+            "type": "string",
+            "description": "Inicio de la función.",
+            "format": "date-time"
+          },
+          "peliculaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "peliculaTitulo": {
+            "type": "string"
+          },
+          "sucursalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sucursalNombre": {
+            "type": "string"
+          },
+          "salaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "salaNombre": {
+            "type": "string"
+          }
+        }
+      },
+      "HorarioFuncionResponse": {
+        "required": [
+          "funcionId",
+          "horaInicio",
+          "salaId",
+          "salaNombre",
+          "precioEntrada"
+        ],
+        "type": "object",
+        "properties": {
+          "funcionId": {
+            "type": "string",
+            "description": "Función; se usa para pedir el mapa de asientos y crear el carrito.",
+            "format": "uuid"
+          },
+          "horaInicio": {
+            "type": "string",
+            "description": "Inicio de la función.",
+            "format": "date-time"
+          },
+          "salaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "salaNombre": {
+            "type": "string"
+          },
+          "precioEntrada": {
+            "description": "Precio de una entrada.",
+            "$ref": "#/components/schemas/DineroResponse"
+          }
+        }
+      },
+      "MapaAsientosResponse": {
+        "required": [
+          "funcionId",
+          "horaInicio",
+          "peliculaId",
+          "peliculaTitulo",
+          "sucursalId",
+          "sucursalNombre",
+          "salaId",
+          "salaNombre",
+          "totalAsientos",
+          "cantidadDisponibles",
+          "filas",
+          "precioEntrada"
+        ],
+        "type": "object",
+        "properties": {
+          "funcionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "horaInicio": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "peliculaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "peliculaTitulo": {
+            "type": "string"
+          },
+          "sucursalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sucursalNombre": {
+            "type": "string"
+          },
+          "salaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "salaNombre": {
+            "type": "string"
+          },
+          "totalAsientos": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Asientos de la sala.",
+            "format": "int32"
+          },
+          "cantidadDisponibles": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Asientos que todavía se pueden elegir.",
+            "format": "int32"
+          },
+          "filas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilaMapaResponse"
+            },
+            "description": "Filas de la sala en orden."
+          },
+          "precioEntrada": {
+            "description": "Precio de una entrada.",
+            "$ref": "#/components/schemas/DineroResponse"
+          }
+        }
+      },
+      "PeliculaDetalleResponse": {
+        "required": [
+          "id",
+          "titulo",
+          "duracionMinutos",
+          "clasificacion",
+          "sinopsis",
+          "sinFuncionesDisponibles"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "duracionMinutos": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Duración en minutos.",
+            "format": "int32"
+          },
+          "clasificacion": {
+            "type": "string",
+            "description": "Calificación por edad: `ATP`, `Mas13`, `Mas16` o `Mas18`."
+          },
+          "sinopsis": {
+            "type": "string",
+            "description": "Resumen del argumento."
+          },
+          "sinFuncionesDisponibles": {
+            "type": "boolean",
+            "description": "`true` si hoy no quedan funciones de la película."
+          }
+        }
+      },
+      "PeliculaListItemResponse": {
+        "required": [
+          "id",
+          "titulo",
+          "duracionMinutos",
+          "clasificacion",
+          "sinFuncionesDisponibles"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "duracionMinutos": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Duración en minutos.",
+            "format": "int32"
+          },
+          "clasificacion": {
+            "type": "string",
+            "description": "Calificación por edad: `ATP`, `Mas13`, `Mas16` o `Mas18`."
+          },
+          "sinFuncionesDisponibles": {
+            "type": "boolean",
+            "description": "`true` si hoy no quedan funciones de la película."
+          }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "codigo": {
+            "type": "string",
+            "description": "Código estable del error de negocio, por ejemplo `asientos-no-disponibles`. Ausente en los 404 y 410 de consultas (catálogo, horarios, mapa de asientos)."
+          }
+        },
+        "description": "Error en formato RFC 9457. Los errores de negocio agregan `codigo` y, según el caso, `errors` (pedido-invalido: campo → mensajes), `asientos` (asientos-inexistentes, asientos-no-disponibles: lista de {fila, numero}) o `estadoActual` (carrito-no-activo: Abandonado o Expirado)."
+      },
+      "ReemplazarAsientosRequest": {
+        "required": [
+          "asientos"
+        ],
+        "type": "object",
+        "properties": {
+          "asientos": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AsientoRequest"
+            },
+            "description": "La nueva selección completa, con las mismas reglas que al crear el carrito."
+          }
+        }
+      },
+      "SucursalConFuncionesHoyResponse": {
+        "required": [
+          "id",
+          "nombre"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nombre": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "Invitado": {
+        "type": "http",
+        "description": "Token del carrito del comprador anónimo. Lo devuelve una sola vez `POST /api/funciones/{funcionId}/carritos` (campo `token`) y da acceso únicamente a ese carrito.",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "Personal": {
+        "type": "http",
+        "description": "Token del proveedor OIDC del personal interno (roles CinemaManager o Admin).",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Funciones"
+    },
+    {
+      "name": "Catálogo"
+    },
+    {
+      "name": "Carritos"
+    }
+  ]
+}

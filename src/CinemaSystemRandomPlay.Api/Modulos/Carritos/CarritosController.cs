@@ -17,6 +17,7 @@ namespace CinemaSystemRandomPlay.Api.Modulos.Carritos;
 /// </summary>
 [ApiController]
 [Authorize(Policy = Politicas.PortadorDeCarrito)]
+[Tags("Carritos")]
 public class CarritosController : ControllerBase
 {
     public const string PoliticaCreacionPorOrigen = "CreacionDeCarritos";
@@ -41,9 +42,33 @@ public class CarritosController : ControllerBase
         _indicarEmailEntregaCommandHandler = indicarEmailEntregaCommandHandler;
     }
 
+    /// <summary>Crea un carrito que retiene los asientos elegidos de una función.</summary>
+    /// <remarks>
+    /// Público y limitado por origen. Los asientos quedan retenidos hasta <c>venceEn</c> (unos minutos); después el carrito
+    /// expira y se liberan. La respuesta trae el <c>token</c> del carrito: es la única vez que se entrega y lo exigen todas las
+    /// demás operaciones como <c>Authorization: Bearer {token}</c>.
+    /// </remarks>
+    /// <param name="funcionId">Función cuyos asientos se retienen.</param>
+    /// <param name="request">Asientos elegidos (entre 1 y el máximo por carrito, sin repetir) y, opcionalmente, el desafío anti-bots.</param>
+    /// <response code="201">Carrito creado; incluye el token de acceso.</response>
+    /// <response code="400"><c>pedido-invalido</c>: sin asientos, demasiados, repetidos o con fila/número mal formados. Ver <c>errors</c>.</response>
+    /// <response code="403"><c>desafio-rechazado</c>: no se superó el desafío anti-bots.</response>
+    /// <response code="404"><c>funcion-no-encontrada</c>: la función no existe o su película no está activa.</response>
+    /// <response code="409"><c>asientos-no-disponibles</c> (ver <c>asientos</c>) o <c>funcion-sin-cupo</c>: la función alcanzó el máximo de asientos retenidos a la vez.</response>
+    /// <response code="410"><c>funcion-no-disponible</c>: la función ya comenzó.</response>
+    /// <response code="422"><c>asientos-inexistentes</c>: hay asientos que no existen en la sala (ver <c>asientos</c>).</response>
+    /// <response code="429"><c>demasiados-pedidos</c>: se superó el límite de creaciones desde este origen. Respetar <c>Retry-After</c>.</response>
     [HttpPost("api/funciones/{funcionId:guid}/carritos")]
     [AllowAnonymous]
     [EnableRateLimiting(PoliticaCreacionPorOrigen)]
+    [ProducesResponseType<CarritoCreadoResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status410Gone, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests, "application/problem+json")]
     public async Task<IActionResult> Crear(Guid funcionId, [FromBody] CrearCarritoRequest request, CancellationToken cancellationToken)
     {
         var resultado = await _crearCarritoCommandHandler.Handle(
@@ -55,7 +80,14 @@ public class CarritosController : ControllerBase
             : Problema(resultado);
     }
 
+    /// <summary>Obtiene el carrito del token.</summary>
+    /// <remarks>Sirve para refrescar el estado y el vencimiento; un carrito abandonado o expirado se sigue pudiendo consultar.</remarks>
+    /// <param name="carritoId">Carrito del token.</param>
+    /// <response code="200">El carrito.</response>
+    /// <response code="404"><c>carrito-no-encontrado</c>: no existe o el token es de otro carrito.</response>
     [HttpGet("api/carritos/{carritoId:guid}")]
+    [ProducesResponseType<CarritoResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     public async Task<IActionResult> Obtener(Guid carritoId, CancellationToken cancellationToken)
     {
         if (User.ObtenerCarritoId() is not { } delToken)
@@ -66,7 +98,25 @@ public class CarritosController : ControllerBase
         return carrito is null ? CarritoNoEncontrado() : Ok(CarritoResponse.DesdeDto(carrito));
     }
 
+    /// <summary>Reemplaza la selección completa de asientos del carrito.</summary>
+    /// <remarks>
+    /// La lista enviada pasa a ser toda la selección: los asientos que no figuran se liberan. Solo para carritos activos.
+    /// </remarks>
+    /// <param name="carritoId">Carrito del token.</param>
+    /// <param name="request">La nueva selección completa (mismas reglas que al crear).</param>
+    /// <response code="200">El carrito con la nueva selección.</response>
+    /// <response code="400"><c>pedido-invalido</c>: selección mal formada. Ver <c>errors</c>.</response>
+    /// <response code="404"><c>carrito-no-encontrado</c>: no existe o el token es de otro carrito.</response>
+    /// <response code="409"><c>asientos-no-disponibles</c> (ver <c>asientos</c>), <c>funcion-sin-cupo</c> o <c>carrito-no-activo</c> (ver <c>estadoActual</c>).</response>
+    /// <response code="410"><c>funcion-no-disponible</c>: la función ya comenzó.</response>
+    /// <response code="422"><c>asientos-inexistentes</c>: hay asientos que no existen en la sala (ver <c>asientos</c>).</response>
     [HttpPut("api/carritos/{carritoId:guid}/asientos")]
+    [ProducesResponseType<CarritoResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status410Gone, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
     public async Task<IActionResult> ReemplazarAsientos(Guid carritoId, [FromBody] ReemplazarAsientosRequest request, CancellationToken cancellationToken)
     {
         if (User.ObtenerCarritoId() is not { } delToken)
@@ -78,7 +128,15 @@ public class CarritosController : ControllerBase
         return Respuesta(resultado);
     }
 
+    /// <summary>Abandona el carrito y libera sus asientos de inmediato.</summary>
+    /// <param name="carritoId">Carrito del token.</param>
+    /// <response code="200">El carrito, ya en estado <c>Abandonado</c>.</response>
+    /// <response code="404"><c>carrito-no-encontrado</c>: no existe o el token es de otro carrito.</response>
+    /// <response code="409"><c>carrito-no-activo</c>: ya estaba abandonado o expirado (ver <c>estadoActual</c>).</response>
     [HttpPost("api/carritos/{carritoId:guid}/abandono")]
+    [ProducesResponseType<CarritoResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     public async Task<IActionResult> Abandonar(Guid carritoId, CancellationToken cancellationToken)
     {
         if (User.ObtenerCarritoId() is not { } delToken)
@@ -87,7 +145,18 @@ public class CarritosController : ControllerBase
         return Respuesta(await _abandonarCarritoCommandHandler.Handle(new AbandonarCarritoCommand(carritoId, delToken), cancellationToken));
     }
 
+    /// <summary>Indica o reemplaza el email al que se enviarán las entradas.</summary>
+    /// <param name="carritoId">Carrito del token.</param>
+    /// <param name="request">Email del comprador.</param>
+    /// <response code="200">El carrito con el email de entrega.</response>
+    /// <response code="400"><c>pedido-invalido</c>: el email es inválido (ver <c>errors.email</c>).</response>
+    /// <response code="404"><c>carrito-no-encontrado</c>: no existe o el token es de otro carrito.</response>
+    /// <response code="409"><c>carrito-no-activo</c>: el carrito está abandonado o expirado (ver <c>estadoActual</c>).</response>
     [HttpPut("api/carritos/{carritoId:guid}/email-entrega")]
+    [ProducesResponseType<CarritoResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     public async Task<IActionResult> IndicarEmailEntrega(Guid carritoId, [FromBody] EmailEntregaRequest request, CancellationToken cancellationToken)
     {
         if (User.ObtenerCarritoId() is not { } delToken)

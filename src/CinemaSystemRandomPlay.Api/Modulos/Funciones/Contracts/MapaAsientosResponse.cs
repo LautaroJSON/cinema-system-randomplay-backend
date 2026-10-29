@@ -3,6 +3,10 @@ using CinemaSystemRandomPlay.Application.Funciones.Dtos;
 
 namespace CinemaSystemRandomPlay.Api.Modulos.Funciones.Contracts;
 
+/// <param name="TotalAsientos">Asientos de la sala.</param>
+/// <param name="CantidadDisponibles">Asientos que todavía se pueden elegir.</param>
+/// <param name="Filas">Filas de la sala en orden.</param>
+/// <param name="PrecioEntrada">Precio de una entrada.</param>
 public record MapaAsientosResponse(
     Guid FuncionId,
     DateTimeOffset HoraInicio,
@@ -23,6 +27,9 @@ public record MapaAsientosResponse(
             DineroResponse.DesdeDto(dto.PrecioEntrada));
 }
 
+/// <param name="Fila">Letra de la fila.</param>
+/// <param name="CantidadAsientos">Asientos de la fila, numerados de 1 a este valor.</param>
+/// <param name="AsientosDisponibles">Números de los asientos libres de la fila; los que faltan están ocupados o retenidos.</param>
 public record FilaMapaResponse(
     string Fila,
     int CantidadAsientos,
