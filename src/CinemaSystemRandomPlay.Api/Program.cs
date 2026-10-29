@@ -211,9 +211,10 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    // Públicos aunque la política de fallback exija autenticación: solo existen en Development.
+    app.MapOpenApi().AllowAnonymous();
     // Referencia navegable de la API en /scalar, con el documento de /openapi/v1.json.
-    app.MapScalarApiReference();
+    app.MapScalarApiReference().AllowAnonymous();
 
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
