@@ -30,6 +30,7 @@ public class ListarPeliculasQueryHandler
                 pelicula.Titulo,
                 pelicula.DuracionMinutos,
                 pelicula.Clasificacion.ToString(),
+                pelicula.ImagenUrl,
                 SinFuncionesDisponibles: !tieneFunciones));
         }
 

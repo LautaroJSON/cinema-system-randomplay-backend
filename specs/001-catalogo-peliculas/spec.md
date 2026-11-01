@@ -12,7 +12,7 @@
 
 ### User Story 1 - Ver el listado de películas en cartelera (Priority: P1)
 
-Un Cliente entra a la sección "Catálogo" y ve la lista de todas las películas activas disponibles, cada una mostrando al menos su título, duración y clasificación, para poder explorar la oferta antes de elegir una.
+Un Cliente entra a la sección "Catálogo" y ve la lista de todas las películas activas disponibles, cada una mostrando al menos su título, duración, clasificación y, si la tiene, su imagen (póster), para poder explorar la oferta antes de elegir una.
 
 **Why this priority**: Es el punto de entrada de todo el flujo de reserva — sin poder ver el catálogo, ningún otro paso (elegir sucursal, función, asiento) es alcanzable. Es la funcionalidad mínima que ya entrega valor por sí sola (permite descubrir qué películas hay, incluso antes de reservar).
 
@@ -20,7 +20,7 @@ Un Cliente entra a la sección "Catálogo" y ve la lista de todas las películas
 
 **Acceptance Scenarios**:
 
-1. **Given** existen películas activas cargadas en el sistema, **When** el usuario entra a la sección Catálogo, **Then** ve la lista completa de esas películas con título, duración y clasificación.
+1. **Given** existen películas activas cargadas en el sistema, **When** el usuario entra a la sección Catálogo, **Then** ve la lista completa de esas películas con título, duración, clasificación e imagen (cuando la película tenga una).
 2. **Given** una película fue desactivada por un `CinemaManager`/`Admin`, **When** el usuario entra a la sección Catálogo, **Then** esa película no aparece en la lista.
 3. **Given** no hay ninguna película activa en el sistema, **When** el usuario entra a la sección Catálogo, **Then** ve un mensaje claro indicando que no hay películas disponibles, sin errores.
 4. **Given** una película activa no tiene ninguna función programada en ninguna sucursal, **When** el usuario entra a la sección Catálogo, **Then** esa película igual aparece en el listado, pero marcada visualmente como "sin funciones disponibles".
@@ -29,7 +29,7 @@ Un Cliente entra a la sección "Catálogo" y ve la lista de todas las películas
 
 ### User Story 2 - Ver el detalle de una película (Priority: P2)
 
-Desde el listado del Catálogo, el Cliente selecciona una película puntual y ve su información completa (título, duración, clasificación, sinopsis), para decidir si quiere continuar el flujo de reserva con esa película.
+Desde el listado del Catálogo, el Cliente selecciona una película puntual y ve su información completa (título, duración, clasificación, sinopsis e imagen si la tiene), para decidir si quiere continuar el flujo de reserva con esa película.
 
 **Why this priority**: Depende de que exista el listado (User Story 1), pero agrega el valor de decisión informada — es el siguiente paso natural del flujo antes de elegir sucursal/función. No es bloqueante para que el listado por sí solo entregue valor.
 
@@ -37,7 +37,7 @@ Desde el listado del Catálogo, el Cliente selecciona una película puntual y ve
 
 **Acceptance Scenarios**:
 
-1. **Given** el usuario está viendo el listado del Catálogo, **When** selecciona una película activa, **Then** ve el detalle completo: título, duración, clasificación y sinopsis.
+1. **Given** el usuario está viendo el listado del Catálogo, **When** selecciona una película activa, **Then** ve el detalle completo: título, duración, clasificación, sinopsis e imagen (cuando la película tenga una).
 2. **Given** el usuario tiene abierto el detalle de una película, **When** esa película es desactivada por un `CinemaManager`/`Admin` mientras la está viendo, **Then** un intento posterior de acceder a ese detalle (ej. recargar) indica que la película ya no está disponible, en vez de mostrar datos obsoletos.
 
 ---
@@ -61,6 +61,7 @@ Desde la sección Catálogo, el Cliente escribe parte de un título en un buscad
 
 - ¿Qué pasa si el catálogo tiene una cantidad muy grande de películas activas? (se asume paginación o scroll, ver Assumptions)
 - ¿Qué pasa si el título o la sinopsis de una película son inusualmente largos? El listado debe truncar visualmente sin romper el layout; el detalle debe mostrar el texto completo.
+- ¿Qué pasa si una película no tiene imagen cargada? Se lista y se muestra en el detalle igual que las demás; la API devuelve la URL de imagen como `null` y el cliente muestra una imagen por defecto (placeholder). La ausencia de imagen nunca oculta una película ni produce un error.
 - ¿Qué pasa si dos películas activas tienen el mismo título? Ambas se listan igual, se distinguen por su identidad interna, no por el título (el título no es una clave única de negocio).
 
 ## Requirements *(mandatory)*
@@ -76,10 +77,11 @@ Desde la sección Catálogo, el Cliente escribe parte de un título en un buscad
 - **FR-007**: El acceso de lectura al Catálogo (listado y detalle) NO DEBE requerir autenticación — el rol `Customer` (y visitantes no autenticados) puede navegarlo libremente.
 - **FR-008**: El Catálogo DEBE mostrar todas las películas activas, tengan o no funciones programadas en alguna sucursal.
 - **FR-009**: El sistema DEBE marcar visualmente en el listado y en el detalle a las películas activas que no tengan ninguna `Funcion` programada en ninguna `Sucursal`, indicando claramente que están "sin funciones disponibles".
+- **FR-010**: El sistema DEBE exponer, tanto en el listado como en el detalle, la URL de la imagen (póster) de cada película. La imagen es **opcional**: una película sin imagen sigue siendo válida y visible, y en ese caso la URL se informa como ausente (`null`).
 
 ### Key Entities
 
-- **Pelicula**: representa una película del catálogo. Atributos relevantes para esta feature: título, duración, clasificación, sinopsis, y estado activo/inactivo (solo las activas son visibles en el Catálogo). La gestión de creación/edición/desactivación de una `Pelicula` es responsabilidad de otra feature (administración de catálogo, rol `CinemaManager`/`Admin`) — fuera de alcance aquí.
+- **Pelicula**: representa una película del catálogo. Atributos relevantes para esta feature: título, duración, clasificación, sinopsis, URL de imagen (opcional), y estado activo/inactivo (solo las activas son visibles en el Catálogo). La gestión de creación/edición/desactivación de una `Pelicula` es responsabilidad de otra feature (administración de catálogo, rol `CinemaManager`/`Admin`) — fuera de alcance aquí.
 - **Funcion**: no se gestiona en esta feature, pero el Catálogo necesita saber, de forma solo-lectura, si existe al menos una `Funcion` programada para una `Pelicula` (en cualquier `Sucursal`), únicamente para decidir si mostrar la marca "sin funciones disponibles".
 
 ## Success Criteria *(mandatory)*
@@ -95,7 +97,8 @@ Desde la sección Catálogo, el Cliente escribe parte de un título en un buscad
 ## Assumptions
 
 - El Catálogo es de acceso público (no requiere que el usuario esté autenticado) para poder explorarlo antes de decidir reservar, siguiendo el patrón estándar de apps de cine.
-- El detalle de una película incluye título, duración, clasificación y sinopsis; no se incluyen pósters/imágenes ni trailers en esta primera versión — se pueden sumar en una iteración futura sin romper esta spec.
+- El detalle de una película incluye título, duración, clasificación, sinopsis y la URL de su imagen (póster), si la tiene; no se incluyen trailers en esta versión — se pueden sumar en una iteración futura sin romper esta spec.
+- La imagen se referencia por URL absoluta (`http`/`https`) a un recurso alojado externamente (CDN/almacenamiento); esta feature no sube, almacena ni transforma imágenes. La carga de la URL es responsabilidad de la feature de administración de catálogo.
 - Esta feature no depende de la gestión de `Sucursal` ni `Funcion` (esas siguen siendo features futuras separadas): el Catálogo lista/filtra películas de forma independiente a si están programadas. La única dependencia es de **lectura**: saber si existe o no al menos una `Funcion` para marcar la película como "sin funciones disponibles" (FR-009); mientras esa feature no exista, se asume que ninguna película tiene funciones y todas se muestran con esa marca.
 - Se asume que la cantidad de películas activas en un momento dado es moderada (decenas, no miles); si el volumen creciera mucho, se resolvería con paginación estándar, sin cambiar el alcance de esta spec.
 - La búsqueda por título (User Story 3) es una mejora de UX de prioridad baja, no bloqueante para considerar esta feature entregable con valor real.

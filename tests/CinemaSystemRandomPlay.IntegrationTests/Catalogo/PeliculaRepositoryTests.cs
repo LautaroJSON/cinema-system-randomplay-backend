@@ -53,7 +53,7 @@ public class PeliculaRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task ObtenerPorId_ConIdExistente_DevuelveLaPelicula()
     {
-        var pelicula = new Pelicula(Guid.NewGuid(), "Amelie", 100, Clasificacion.ATP, "Sinopsis");
+        var pelicula = new Pelicula(Guid.NewGuid(), "Amelie", 100, Clasificacion.ATP, "Sinopsis", imagenUrl: "https://cdn.ejemplo.com/posters/amelie.jpg");
         _dbContext.Peliculas.Add(pelicula);
         await _dbContext.SaveChangesAsync();
 
@@ -63,6 +63,7 @@ public class PeliculaRepositoryTests : IAsyncLifetime
 
         Assert.NotNull(resultado);
         Assert.Equal("Amelie", resultado!.Titulo);
+        Assert.Equal("https://cdn.ejemplo.com/posters/amelie.jpg", resultado.ImagenUrl);
     }
 
     [Fact]

@@ -32,6 +32,7 @@ public class ObtenerDetallePeliculaQueryHandler
             pelicula.DuracionMinutos,
             pelicula.Clasificacion.ToString(),
             pelicula.Sinopsis,
+            pelicula.ImagenUrl,
             SinFuncionesDisponibles: !tieneFunciones);
     }
 }

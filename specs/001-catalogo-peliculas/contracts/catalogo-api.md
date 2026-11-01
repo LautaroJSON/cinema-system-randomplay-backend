@@ -17,10 +17,13 @@ Lista las películas activas. Soporta filtro opcional por título (User Story 3 
     "titulo": "string",
     "duracionMinutos": 120,
     "clasificacion": "Mas13",
+    "imagenUrl": "https://cdn.ejemplo.com/posters/abc.jpg",
     "sinFuncionesDisponibles": true
   }
 ]
 ```
+`imagenUrl` es opcional: vale `null` cuando la película no tiene imagen (el cliente muestra un placeholder).
+
 Devuelve `[]` (lista vacía) cuando no hay películas activas o ninguna coincide con el filtro — el cliente es responsable de mostrar el mensaje de "sin resultados" (FR-005/SC-004), la API no devuelve un error en ese caso.
 
 ## `GET /api/catalogo/peliculas/{id}`
@@ -35,8 +38,10 @@ Detalle completo de una película activa.
   "duracionMinutos": 120,
   "clasificacion": "Mas13",
   "sinopsis": "string",
+  "imagenUrl": "https://cdn.ejemplo.com/posters/abc.jpg",
   "sinFuncionesDisponibles": true
 }
 ```
+`imagenUrl` sigue la misma regla que en el listado (`null` si no hay imagen).
 
 **404 Not Found** — cuando el `id` no existe, o cuando existe pero `Activa == false` (una película desactivada no es distinguible de una inexistente para el borde público — evita filtrar el estado interno de administración a un cliente no autenticado).

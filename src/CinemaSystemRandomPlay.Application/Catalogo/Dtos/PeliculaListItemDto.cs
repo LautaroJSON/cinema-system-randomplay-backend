@@ -5,4 +5,5 @@ public record PeliculaListItemDto(
     string Titulo,
     int DuracionMinutos,
     string Clasificacion,
+    string? ImagenUrl,
     bool SinFuncionesDisponibles);

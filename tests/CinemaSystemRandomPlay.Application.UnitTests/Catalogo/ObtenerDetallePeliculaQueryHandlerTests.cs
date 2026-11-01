@@ -10,7 +10,7 @@ public class ObtenerDetallePeliculaQueryHandlerTests
     [Fact]
     public async Task Handle_PeliculaActivaExistente_DevuelveElDetalle()
     {
-        var pelicula = new Pelicula(Guid.NewGuid(), "Matrix", 136, Clasificacion.Mas13, "Sinopsis.");
+        var pelicula = new Pelicula(Guid.NewGuid(), "Matrix", 136, Clasificacion.Mas13, "Sinopsis.", imagenUrl: "https://cdn.ejemplo.com/posters/matrix.jpg");
 
         var repository = Substitute.For<IPeliculaRepository>();
         repository.ObtenerPorId(pelicula.Id, Arg.Any<CancellationToken>()).Returns(pelicula);
@@ -25,6 +25,7 @@ public class ObtenerDetallePeliculaQueryHandlerTests
         Assert.NotNull(resultado);
         Assert.Equal("Matrix", resultado!.Titulo);
         Assert.Equal("Sinopsis.", resultado.Sinopsis);
+        Assert.Equal("https://cdn.ejemplo.com/posters/matrix.jpg", resultado.ImagenUrl);
         Assert.False(resultado.SinFuncionesDisponibles);
     }
 

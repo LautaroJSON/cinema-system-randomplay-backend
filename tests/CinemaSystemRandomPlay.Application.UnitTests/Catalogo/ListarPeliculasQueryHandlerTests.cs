@@ -10,7 +10,7 @@ public class ListarPeliculasQueryHandlerTests
     [Fact]
     public async Task Handle_DevuelvePeliculasActivas_ConSinFuncionesDisponiblesResuelto()
     {
-        var pelicula1 = new Pelicula(Guid.NewGuid(), "Matrix", 136, Clasificacion.Mas13, "Sinopsis 1");
+        var pelicula1 = new Pelicula(Guid.NewGuid(), "Matrix", 136, Clasificacion.Mas13, "Sinopsis 1", imagenUrl: "https://cdn.ejemplo.com/posters/matrix.jpg");
         var pelicula2 = new Pelicula(Guid.NewGuid(), "Dune", 155, Clasificacion.Mas13, "Sinopsis 2");
 
         var repository = Substitute.For<IPeliculaRepository>();
@@ -28,6 +28,8 @@ public class ListarPeliculasQueryHandlerTests
         Assert.Equal(2, resultado.Count);
         Assert.False(resultado.Single(p => p.Id == pelicula1.Id).SinFuncionesDisponibles);
         Assert.True(resultado.Single(p => p.Id == pelicula2.Id).SinFuncionesDisponibles);
+        Assert.Equal("https://cdn.ejemplo.com/posters/matrix.jpg", resultado.Single(p => p.Id == pelicula1.Id).ImagenUrl);
+        Assert.Null(resultado.Single(p => p.Id == pelicula2.Id).ImagenUrl);
     }
 
     [Fact]

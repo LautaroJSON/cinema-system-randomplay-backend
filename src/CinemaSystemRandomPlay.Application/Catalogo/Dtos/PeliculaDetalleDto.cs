@@ -6,4 +6,5 @@ public record PeliculaDetalleDto(
     int DuracionMinutos,
     string Clasificacion,
     string Sinopsis,
+    string? ImagenUrl,
     bool SinFuncionesDisponibles);

@@ -52,6 +52,7 @@ public class PeliculasControllerTests : IClassFixture<CatalogoApiFactory>
         Assert.NotNull(peliculas);
         var pelicula = Assert.Single(peliculas);
         Assert.Equal("Interstellar", pelicula.Titulo);
+        Assert.Null(pelicula.ImagenUrl);
         Assert.True(pelicula.SinFuncionesDisponibles);
     }
 
@@ -63,7 +64,7 @@ public class PeliculasControllerTests : IClassFixture<CatalogoApiFactory>
         using (var scope = _factory.Services.CreateScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
-            var pelicula = new Pelicula(Guid.NewGuid(), "Amelie", 100, Clasificacion.ATP, "Una sinopsis.");
+            var pelicula = new Pelicula(Guid.NewGuid(), "Amelie", 100, Clasificacion.ATP, "Una sinopsis.", imagenUrl: "https://cdn.ejemplo.com/posters/amelie.jpg");
             dbContext.Peliculas.Add(pelicula);
             await dbContext.SaveChangesAsync();
             peliculaId = pelicula.Id;
@@ -77,6 +78,7 @@ public class PeliculasControllerTests : IClassFixture<CatalogoApiFactory>
         Assert.NotNull(detalle);
         Assert.Equal("Amelie", detalle!.Titulo);
         Assert.Equal("Una sinopsis.", detalle.Sinopsis);
+        Assert.Equal("https://cdn.ejemplo.com/posters/amelie.jpg", detalle.ImagenUrl);
     }
 
     [Fact]

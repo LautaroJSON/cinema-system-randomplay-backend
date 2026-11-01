@@ -11,11 +11,13 @@ Representa una película del catálogo. Es una entidad ya persistida para efecto
 | `DuracionMinutos` | `int` | Positivo (> 0). |
 | `Clasificacion` | `Clasificacion` (VO/enum) | Valor cerrado, ej. `ATP`, `Mas13`, `Mas16`, `Mas18`. |
 | `Sinopsis` | `string` | Puede ser vacía; se muestra solo en el detalle, no en el listado. |
+| `ImagenUrl` | `string?` | Opcional (`null` = sin imagen). Si se informa: URL absoluta con esquema `http` o `https`, longitud máxima 500 (FR-010). |
 | `Activa` | `bool` | Solo las películas con `Activa == true` son visibles en el Catálogo (FR-002). |
 
 **Invariantes de construcción** (para cuando la feature de administración exista — esta feature no crea `Pelicula`s, pero el tipo debe sostenerlas para no ser un modelo anémico):
 - El constructor lanza `DomainException` si `Titulo` es vacío/whitespace.
 - El constructor lanza `DomainException` si `DuracionMinutos <= 0`.
+- El constructor lanza `DomainException` si `ImagenUrl` se informa y no es una URL absoluta `http`/`https`. Un valor vacío/whitespace se normaliza a `null`.
 
 ## Relación de solo lectura con Funcion (no se modela como entidad en esta feature)
 
@@ -30,6 +32,7 @@ Esta feature **no** define la entidad `Funcion` (pertenece a una feature futura)
 | `Titulo` | `Pelicula.Titulo` |
 | `DuracionMinutos` | `Pelicula.DuracionMinutos` |
 | `Clasificacion` | `Pelicula.Clasificacion` (como string) |
+| `ImagenUrl` | `Pelicula.ImagenUrl` (`null` si no tiene) |
 | `SinFuncionesDisponibles` | `!IFuncionAvailabilityChecker.TieneFuncionesProgramadas(Pelicula.Id)` |
 
 ### `PeliculaDetalleDto`
