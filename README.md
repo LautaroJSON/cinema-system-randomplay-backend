@@ -112,6 +112,11 @@ de referencia estáticos en las migraciones.
 con horarios relativos al momento en que arranca la Api, para que siempre haya "funciones de
 hoy" disponibles sin importar qué día la levantes. El id de la película de demostración sembrada
 es fijo: `88888888-0000-0000-0000-000000000001`.
+Además de las cuatro películas demo se siembran 22 de Studio Ghibli, copiadas del mock del frontend
+(`DevDataSeeder.PeliculasGhibli.cs`), con pósters, sinopsis en inglés y horarios en las tres
+sucursales. Su clasificación y sus horarios son inventados. El sembrado solo agrega lo que falta:
+para que una base ya creada tome cambios en películas existentes, recreala con
+`docker compose down -v && docker compose up -d --build`.
 
 ## Endpoints
 

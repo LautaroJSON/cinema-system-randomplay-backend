@@ -13,8 +13,10 @@ namespace CinemaSystemRandomPlay.Infrastructure.Persistence;
 /// mano en cada arranque. Es idempotente: no duplica las Peliculas demo, y solo agrega Funciones
 /// nuevas a una demo si no tiene ninguna disponible hoy (para no quedar "vencido" al día siguiente).
 /// Los pósters son URLs de Wikipedia (obtenidas de su API REST pública), solo para mostrar en desarrollo.
+/// Además de las cuatro demo siembra las películas de Studio Ghibli del mock del frontend
+/// (ver DevDataSeeder.PeliculasGhibli.cs), con la misma idempotencia.
 /// </summary>
-public static class DevDataSeeder
+public static partial class DevDataSeeder
 {
     public static readonly Guid PeliculaDemoId = new("88888888-0000-0000-0000-000000000001");
     public static readonly Guid PeliculaDemoDuneId = new("88888888-0000-0000-0000-000000000002");
@@ -55,7 +57,7 @@ public static class DevDataSeeder
 
     public static async Task SeedAsync(CinemaDbContext dbContext, CancellationToken cancellationToken = default)
     {
-        var peliculasDemo = PeliculasDemo();
+        var peliculasDemo = PeliculasDemo().Concat(PeliculasGhibli().Select(g => g.Pelicula)).ToArray();
         var idsDemo = peliculasDemo.Select(p => p.Id).ToList();
         var idsExistentes = await dbContext.Peliculas
             .Where(p => idsDemo.Contains(p.Id))
@@ -102,5 +104,13 @@ public static class DevDataSeeder
         ]);
         // El secreto de sus ojos queda sin funciones a propósito: muestra la marca "sin funciones disponibles".
         yield return (PeliculaDemoSecretoDeSusOjosId, []);
+
+        foreach (var (pelicula, funciones) in PeliculasGhibli())
+        {
+            yield return (pelicula.Id,
+                funciones
+                    .Select(f => new Funcion(Guid.NewGuid(), pelicula.Id, f.SalaId, ahora.AddMinutes(f.MinutosDesdeAhora), Dinero.Ars(f.Precio)))
+                    .ToArray());
+        }
     }
 }
