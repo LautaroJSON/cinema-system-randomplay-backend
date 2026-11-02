@@ -1190,6 +1190,7 @@
           "duracionMinutos",
           "clasificacion",
           "sinopsis",
+          "imagenUrl",
           "sinFuncionesDisponibles"
         ],
         "type": "object",
@@ -1218,6 +1219,13 @@
             "type": "string",
             "description": "Resumen del argumento."
           },
+          "imagenUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "URL absoluta del póster, o `null` si la película no tiene imagen (mostrar un placeholder)."
+          },
           "sinFuncionesDisponibles": {
             "type": "boolean",
             "description": "`true` si hoy no quedan funciones de la película."
@@ -1230,6 +1238,7 @@
           "titulo",
           "duracionMinutos",
           "clasificacion",
+          "imagenUrl",
           "sinFuncionesDisponibles"
         ],
         "type": "object",
@@ -1253,6 +1262,13 @@
           "clasificacion": {
             "type": "string",
             "description": "Calificación por edad: `ATP`, `Mas13`, `Mas16` o `Mas18`."
+          },
+          "imagenUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "URL absoluta del póster, o `null` si la película no tiene imagen (mostrar un placeholder)."
           },
           "sinFuncionesDisponibles": {
             "type": "boolean",

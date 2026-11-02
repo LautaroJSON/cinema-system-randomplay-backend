@@ -14,6 +14,37 @@ public class PeliculaTests
         Assert.Equal(136, pelicula.DuracionMinutos);
         Assert.Equal(Clasificacion.Mas13, pelicula.Clasificacion);
         Assert.True(pelicula.Activa);
+        Assert.Null(pelicula.ImagenUrl);
+    }
+
+    [Theory]
+    [InlineData("https://cdn.ejemplo.com/posters/matrix.jpg")]
+    [InlineData("http://cdn.ejemplo.com/posters/matrix.jpg")]
+    public void Constructor_ConImagenUrlValida_LaGuarda(string imagenUrl)
+    {
+        var pelicula = new Pelicula(Guid.NewGuid(), "Matrix", 136, Clasificacion.Mas13, "Sinopsis.", imagenUrl: imagenUrl);
+
+        Assert.Equal(imagenUrl, pelicula.ImagenUrl);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Constructor_ConImagenUrlVacia_LaNormalizaANull(string imagenUrl)
+    {
+        var pelicula = new Pelicula(Guid.NewGuid(), "Matrix", 136, Clasificacion.Mas13, "Sinopsis.", imagenUrl: imagenUrl);
+
+        Assert.Null(pelicula.ImagenUrl);
+    }
+
+    [Theory]
+    [InlineData("posters/matrix.jpg")]
+    [InlineData("ftp://cdn.ejemplo.com/matrix.jpg")]
+    [InlineData("no es una url")]
+    public void Constructor_ConImagenUrlInvalida_LanzaDomainException(string imagenUrlInvalida)
+    {
+        Assert.Throws<DomainException>(() =>
+            new Pelicula(Guid.NewGuid(), "Matrix", 136, Clasificacion.Mas13, "Sinopsis.", imagenUrl: imagenUrlInvalida));
     }
 
     [Theory]

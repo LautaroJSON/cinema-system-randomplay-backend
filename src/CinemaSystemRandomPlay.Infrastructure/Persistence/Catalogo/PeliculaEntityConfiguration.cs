@@ -28,6 +28,9 @@ public class PeliculaEntityConfiguration : IEntityTypeConfiguration<Pelicula>
             .IsRequired()
             .HasMaxLength(2000);
 
+        builder.Property(p => p.ImagenUrl)
+            .HasMaxLength(500);
+
         builder.Property(p => p.Activa)
             .IsRequired();
     }

@@ -88,6 +88,10 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
                     b.Property<int>("DuracionMinutos")
                         .HasColumnType("integer");
 
+                    b.Property<string>("ImagenUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("Sinopsis")
                         .IsRequired()
                         .HasMaxLength(2000)

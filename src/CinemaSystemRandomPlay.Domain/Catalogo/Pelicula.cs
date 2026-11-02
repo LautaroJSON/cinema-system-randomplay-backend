@@ -9,13 +9,14 @@ public class Pelicula
     public int DuracionMinutos { get; private set; }
     public Clasificacion Clasificacion { get; private set; }
     public string Sinopsis { get; private set; } = string.Empty;
+    public string? ImagenUrl { get; private set; }
     public bool Activa { get; private set; }
 
     private Pelicula()
     {
     }
 
-    public Pelicula(Guid id, string titulo, int duracionMinutos, Clasificacion clasificacion, string sinopsis, bool activa = true)
+    public Pelicula(Guid id, string titulo, int duracionMinutos, Clasificacion clasificacion, string sinopsis, bool activa = true, string? imagenUrl = null)
     {
         if (string.IsNullOrWhiteSpace(titulo))
             throw new DomainException("El título de la película no puede estar vacío.");
@@ -23,11 +24,17 @@ public class Pelicula
         if (duracionMinutos <= 0)
             throw new DomainException("La duración de la película debe ser mayor a cero.");
 
+        if (string.IsNullOrWhiteSpace(imagenUrl))
+            imagenUrl = null;
+        else if (!Uri.TryCreate(imagenUrl, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            throw new DomainException("La URL de la imagen de la película debe ser una URL absoluta http o https.");
+
         Id = id;
         Titulo = titulo;
         DuracionMinutos = duracionMinutos;
         Clasificacion = clasificacion;
         Sinopsis = sinopsis ?? string.Empty;
+        ImagenUrl = imagenUrl;
         Activa = activa;
     }
 }

@@ -170,7 +170,7 @@ builder.Services.AddScoped<IOutbox, OutboxEf>();
 
 // Catalogo
 builder.Services.AddScoped<IPeliculaRepository, PeliculaRepository>();
-builder.Services.AddScoped<IFuncionAvailabilityChecker, NingunaFuncionDisponibleChecker>();
+builder.Services.AddScoped<IFuncionAvailabilityChecker, FuncionesDeHoyAvailabilityChecker>();
 builder.Services.AddScoped<ListarPeliculasQueryHandler>();
 builder.Services.AddScoped<ObtenerDetallePeliculaQueryHandler>();
 

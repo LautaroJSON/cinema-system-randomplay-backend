@@ -109,6 +109,8 @@ responde con el error correspondiente, pero sirven para dar una buena experienci
 - **Asientos:** `{ "fila": "C", "numero": 7 }`. La fila es una letra mayúscula de A a Z y el número empieza en 1.
 - **Mapa de asientos:** cada fila trae `cantidadAsientos` (numerados de 1 a N) y `asientosDisponibles`. Los números que
   faltan en `asientosDisponibles` están ocupados o retenidos.
+- **Imagen de la película:** `imagenUrl` (listado y detalle) es una URL absoluta `http`/`https` o `null` si la película
+  no tiene imagen. En ese caso, mostrar un placeholder.
 - **Enums en texto:** `estado` del carrito (`Activo`, `Abandonado`, `Expirado`) y `clasificacion` de la película (`ATP`,
   `Mas13`, `Mas16`, `Mas18`).
 
