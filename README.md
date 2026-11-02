@@ -214,8 +214,6 @@ Simplificaciones deliberadas, documentadas en el `research.md` de cada feature:
   misma transacción, pero no existe todavía el proceso que los publica (`ProcesadoEn` queda en `NULL`). Tampoco se
   emite un evento cuando un carrito vence (el vencimiento se calcula contra el reloj). Ambos llegan con la feature de
   notificaciones en tiempo real (SignalR). Ver `specs/004-reserva-asientos-funcion/plan.md`, Complexity Tracking.
-- **Marca "sin funciones disponibles" del Catálogo**: `NingunaFuncionDisponibleChecker` sigue
-  devolviendo que ninguna película tiene funciones, aunque el módulo `Funciones` ya existe.
 - **Límite de creación de carritos por origen**: usa el rate limiter de ASP.NET Core, por proceso (con varias
   instancias el tope efectivo se multiplica) y, detrás de un proxy, requiere configurar `ForwardedHeaders` para
   que la IP sea la del cliente. Clientes que comparten una IP comparten el límite. El tope global por función,

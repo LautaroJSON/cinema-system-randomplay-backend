@@ -80,7 +80,7 @@ public class FuncionRepository : IFuncionRepository
         return new DateTimeOffset(fecha, TimeZoneInfo.Local.GetUtcOffset(fecha));
     }
 
-    private static DateTimeOffset FinDelDia(DateOnly dia)
+    internal static DateTimeOffset FinDelDia(DateOnly dia)
     {
         var fecha = dia.ToDateTime(TimeOnly.MaxValue);
         return new DateTimeOffset(fecha, TimeZoneInfo.Local.GetUtcOffset(fecha));
