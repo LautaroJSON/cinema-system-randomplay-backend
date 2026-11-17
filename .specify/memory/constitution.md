@@ -1,28 +1,31 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 4.0.0 → 4.0.1
-Rationale: PATCH — refinamiento no semántico. Los ejemplos de los Principios II y VI nombraban el
-           agregado `Reserva`, que la feature 007-carrito-anonimo renombró a `Carrito`. Las reglas no
-           cambian.
+Version change: 4.0.1 → 4.1.0
+Rationale: MINOR — ampliación material de "Restricciones de Plataforma y Tecnología" y del Principio VI.
+           La feature 008-pago-mercado-pago reemplaza Stripe por Mercado Pago (Checkout Pro) como
+           pasarela de pago y agrega el publicador del Outbox. Ninguna regla existente se relaja.
 
 Modified principles:
-  - II. "DDD Ligero — Invariantes en el Dominio": la lista de agregados y el ejemplo de nombres en
-    español pasan de `Reserva` a `Carrito`; el ejemplo de invariante habla del vencimiento del carrito.
-  - VI. "Consistencia de Datos vía Outbox + Eventos": el ejemplo "reserva creada" pasa a "carrito creado".
+  - I. "Arquitectura Hexagonal": Mercado Pago reemplaza a Stripe en la lista de frameworks que `Domain`
+    no referencia y en los adaptadores de `Infrastructure`; se suma el servicio de email.
+  - VI. "Consistencia de Datos vía Outbox + Eventos": el ejemplo de efecto no transaccional pasa a
+    "petición a Mercado Pago"; se agrega que el publicador es un proceso en background con reintentos
+    y que los mensajes que agotan reintentos quedan registrados como fallidos.
 
 Added sections: ninguna
 
 Removed sections: ninguna
 
 Templates / archivos dependientes revisados:
-  ✅ .specify/templates/plan-template.md, spec-template.md, tasks-template.md — sin referencias
-  ✅ Código: el agregado ya se llama `Carrito` (feature 007)
+  ✅ .specify/templates/plan-template.md, spec-template.md, tasks-template.md — sin referencias a Stripe
+  ⚠ README.md — se actualiza en la feature 008 (tarea T073)
 
 Follow-up TODOs: ninguno.
 
-Historia: 3.0.0 → 4.0.0 (2026-10-28, MAJOR): Principio VII redefinido para el comprador anónimo con
-token de carrito; email solo de entrega; defensas por carrito, origen y función.
+Historia: 4.0.0 → 4.0.1 (2026-10-28, PATCH): `Reserva` → `Carrito` en los ejemplos de II y VI.
+3.0.0 → 4.0.0 (2026-10-28, MAJOR): Principio VII redefinido para el comprador anónimo con token de
+carrito; email solo de entrega; defensas por carrito, origen y función.
 -->
 
 # Sistema de Reserva de Entradas de Cine — Constitución
@@ -39,13 +42,13 @@ normativo habitual (RFC 2119).
 La solución se organiza en capas `Domain`, `Application`, `Infrastructure` y `Api` (host HTTP).
 La regla de dependencia apunta siempre hacia adentro:
 
-- La capa `Domain` **NO DEBE** referenciar EF Core, ASP.NET Core, SignalR, Stripe, el SDK de
-  OIDC ni ningún otro framework de infraestructura. Solo depende del BCL de .NET.
+- La capa `Domain` **NO DEBE** referenciar EF Core, ASP.NET Core, SignalR, el SDK de Mercado Pago,
+  el cliente SMTP, el SDK de OIDC ni ningún otro framework de infraestructura. Solo depende del BCL de .NET.
 - La capa `Application` (casos de uso) **DEBE** depender únicamente de tipos de `Domain` y de
   interfaces (puertos) declaradas en `Domain` o `Application`. **NO DEBE** referenciar tipos de
   `Infrastructure`.
-- La capa `Infrastructure` **DEBE** implementar esos puertos (EF Core, Stripe, SignalR, OIDC,
-  reloj, mensajería) y **NO DEBE** ser referenciada por `Domain` ni `Application`.
+- La capa `Infrastructure` **DEBE** implementar esos puertos (EF Core, Mercado Pago, email, SignalR,
+  OIDC, reloj, mensajería) y **NO DEBE** ser referenciada por `Domain` ni `Application`.
 - La composición (registro en el DI container, `Program.cs`) es el único lugar donde se
   conocen las implementaciones concretas.
 
@@ -143,10 +146,12 @@ Los efectos secundarios externos no se disparan desde dentro de una transacción
 - Los cambios de estado relevantes (carrito creado, asiento liberado, pago confirmado) **DEBEN**
   registrarse como filas en una tabla `outbox` dentro de la **misma transacción** que persiste
   el cambio de negocio.
-- Un proceso en background **DEBE** leer la tabla outbox y publicar los eventos hacia el hub de
-  SignalR (u otro transporte) fuera de la transacción original.
+- Un proceso en background **DEBE** leer la tabla outbox y publicar los eventos (hacia el hub de
+  SignalR, el servicio de email, la pasarela de pago u otro transporte) fuera de la transacción
+  original, con reintentos espaciados. Un mensaje que agota sus reintentos **DEBE** quedar
+  registrado como fallido, nunca descartarse en silencio.
 - Dentro de una transacción de base de datos **NO DEBE** invocarse una llamada de red, un envío
-  a SignalR, una petición a Stripe ni ningún otro efecto no transaccional.
+  a SignalR, una petición a Mercado Pago ni ningún otro efecto no transaccional.
 - La publicación de eventos **DEBE** ser idempotente o tolerar reintentos (entrega at-least-once).
 
 **Rationale**: escribir estado y notificar en la misma transacción crea inconsistencias cuando
@@ -208,8 +213,9 @@ caras de introducir después; mantienen el código predecible y escalable.
   (REST/JSON) y un hub de SignalR para notificaciones en tiempo real hacia clientes externos.
 - Persistencia mediante EF Core contra un motor relacional real (el mismo motor en desarrollo,
   pruebas de integración y producción).
-- Integraciones externas actuales: Stripe (pagos), un servicio de envío de email (entrega de
-  la entrada al comprador) y un proveedor OIDC (identidad del personal interno). Todas se consumen a
+- Integraciones externas actuales: Mercado Pago Checkout Pro (pagos, con credenciales de prueba
+  mientras no se enmiende esta línea), un servicio de envío de email por SMTP (entrega de la entrada
+  al comprador) y un proveedor OIDC (identidad del personal interno). Todas se consumen a
   través de puertos según el Principio IV.
 - Estructura de proyectos: `Domain`, `Application`, `Infrastructure`, `Api`, más proyectos de
   test (`*.UnitTests`, `*.IntegrationTests`).
@@ -246,4 +252,4 @@ caras de introducir después; mantienen el código predecible y escalable.
 - Para guía de desarrollo en runtime, los comandos de Spec Kit (`/speckit-plan`,
   `/speckit-tasks`, `/speckit-implement`) leen esta constitución como fuente de verdad.
 
-**Version**: 4.0.1 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-10-28
+**Version**: 4.1.0 | **Ratified**: 2026-09-06 | **Last Amended**: 2026-11-17

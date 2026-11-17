@@ -32,7 +32,7 @@ public class AbandonarCarritoCommandHandler : OperacionSobreCarritoHandler
             var abandono = carrito.Abandonar(ahora);
 
             if (!abandono.Abandonado)
-                return Task.FromResult<ResultadoOperacionCarrito?>(ResultadoOperacionCarrito.CarritoNoActivo(abandono.EstadoActual));
+                return Task.FromResult<ResultadoOperacionCarrito?>(ResultadoOperacionCarrito.NoModificable(abandono.EstadoActual));
 
             _outbox.Registrar(new CarritoAbandonado(carrito.Id, carrito.FuncionId, liberados, ahora));
 

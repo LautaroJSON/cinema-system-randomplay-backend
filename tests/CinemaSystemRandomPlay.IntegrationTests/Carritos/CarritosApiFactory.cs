@@ -3,6 +3,8 @@ using CinemaSystemRandomPlay.Application.Compartido.Ports;
 using CinemaSystemRandomPlay.Domain.Catalogo;
 using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
+using CinemaSystemRandomPlay.Infrastructure.Outbox;
+using CinemaSystemRandomPlay.Infrastructure.Pagos;
 using CinemaSystemRandomPlay.Infrastructure.Persistence;
 using CinemaSystemRandomPlay.IntegrationTests.Compartido;
 using CinemaSystemRandomPlay.IntegrationTests.Invitados;
@@ -56,7 +58,12 @@ public class CarritosApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 // del límite por origen lo baja. El tope global por función queda en su valor real.
                 ["Carritos:CreacionesPorOrigen"] = "1000",
                 ["ConnectionStrings:CinemaDb"] = _postgres.ConnectionString,
-                ["Invitados:ClaveFirma"] = TokensDePrueba.ClaveFirmaDePrueba
+                ["Invitados:ClaveFirma"] = TokensDePrueba.ClaveFirmaDePrueba,
+                ["MercadoPago:Modo"] = "Simulado",
+                ["MercadoPago:ClaveSecretaAvisos"] = TokensDePrueba.ClaveAvisosDePrueba,
+                // Los tests procesan el Outbox a mano (ProcesarOutbox) para ser deterministas.
+                ["Outbox:Habilitado"] = "false",
+                ["Email:Proveedor"] = "Registrador"
             });
             configBuilder.AddInMemoryCollection(ConfiguracionAdicional);
         });
@@ -101,6 +108,18 @@ public class CarritosApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         await _postgres.DisposeAsync();
     }
 
+    /// <summary>Pasarela simulada que usa la API: los tests registran pagos y leen las devoluciones pedidas.</summary>
+    public ProcesadorDePagosSimulado Pagos => Services.GetRequiredService<ProcesadorDePagosSimulado>();
+
+    /// <summary>Procesa el Outbox hasta que no queden mensajes listos (los que esperan un reintento quedan para después).</summary>
+    public async Task ProcesarOutbox()
+    {
+        var procesador = Services.GetRequiredService<ProcesadorDeOutbox>();
+        for (var lote = 0; lote < 20 && await procesador.ProcesarLote() > 0; lote++)
+        {
+        }
+    }
+
     public HttpClient CrearCliente(string? token = null)
     {
         var cliente = CreateClient();
@@ -114,10 +133,15 @@ public class CarritosApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         using var scope = Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
         dbContext.OutboxMensajes.RemoveRange(dbContext.OutboxMensajes);
+        dbContext.Devoluciones.RemoveRange(dbContext.Devoluciones);
+        dbContext.PagosProcesados.RemoveRange(dbContext.PagosProcesados);
+        // Las entradas se borran en cascada con su carrito.
         dbContext.Carritos.RemoveRange(dbContext.Carritos);
         dbContext.Funciones.RemoveRange(dbContext.Funciones);
         dbContext.Peliculas.RemoveRange(dbContext.Peliculas);
         await dbContext.SaveChangesAsync();
+        Pagos.Reiniciar();
+        Email.Limpiar();
     }
 
     /// <summary>Limpia los datos y siembra una película con una función que empieza a <paramref name="desdeAhora"/> del reloj de test.</summary>

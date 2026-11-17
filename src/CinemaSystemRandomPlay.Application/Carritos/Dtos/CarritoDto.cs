@@ -14,6 +14,18 @@ public record FuncionCarritoDto(
     Guid SalaId,
     string SalaNombre);
 
+/// <summary>Pago del carrito; existe desde que se inició.</summary>
+public record PagoDto(string UrlPago, DateTimeOffset IniciadoEn, DateTimeOffset? PagadoEn);
+
+public record EntradaDto(
+    string Codigo,
+    AsientoPedidoDto Asiento,
+    string PeliculaTitulo,
+    string SucursalNombre,
+    string SalaNombre,
+    DateTimeOffset HoraInicio,
+    DineroDto PrecioUnitario);
+
 public record CarritoDto(
     Guid Id,
     EstadoCarrito Estado,
@@ -24,7 +36,9 @@ public record CarritoDto(
     FuncionCarritoDto Funcion,
     DineroDto PrecioUnitario,
     DineroDto Total,
-    string? EmailEntrega)
+    string? EmailEntrega,
+    PagoDto? Pago,
+    IReadOnlyList<EntradaDto> Entradas)
 {
     public static CarritoDto DesdeLectura(CarritoLecturaDto lectura, DateTimeOffset ahora) =>
         new(lectura.Id,
@@ -37,5 +51,13 @@ public record CarritoDto(
                 lectura.SucursalId, lectura.SucursalNombre, lectura.SalaId, lectura.SalaNombre),
             DineroDto.DesdeDominio(lectura.PrecioUnitario),
             DineroDto.DesdeDominio(lectura.PrecioUnitario.Multiplicar(lectura.Asientos.Count)),
-            lectura.EmailEntrega);
+            lectura.EmailEntrega,
+            lectura is { UrlPago: not null, PagoIniciadoEn: not null }
+                ? new PagoDto(lectura.UrlPago, lectura.PagoIniciadoEn.Value, lectura.PagadoEn)
+                : null,
+            (lectura.Entradas ?? [])
+                .OrderBy(e => e.Asiento.Fila).ThenBy(e => e.Asiento.Numero)
+                .Select(e => new EntradaDto(e.Codigo, new AsientoPedidoDto(e.Asiento.Fila.ToString(), e.Asiento.Numero),
+                    e.PeliculaTitulo, e.SucursalNombre, e.SalaNombre, e.HoraInicio, DineroDto.DesdeDominio(e.PrecioUnitario)))
+                .ToList());
 }

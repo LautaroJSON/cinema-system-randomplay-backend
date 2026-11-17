@@ -1,5 +1,9 @@
 # Contrato de API: Carrito Anónimo
 
+> **Nota (feature 008)**: los estados `Pagando` y `Pagado`, el endpoint de pago, el webhook de Mercado Pago, los
+> campos `pago` y `entradas` del carrito y el error `carrito-en-pago` están en
+> [contracts/pagos-api.md de la feature 008](../../008-pago-mercado-pago/contracts/pagos-api.md).
+
 Reemplaza los endpoints de reservas de las features 004 y 006 (`POST /api/funciones/{funcionId}/reservas`,
 `GET /api/reservas`, `GET /api/reservas/{id}`, `POST /api/reservas/{id}/cancelacion`) y los de verificación de
 email de la 006 (`POST /api/verificaciones-email`, `POST /api/verificaciones-email/confirmacion`), que

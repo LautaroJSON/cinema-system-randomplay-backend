@@ -1,11 +1,14 @@
 namespace CinemaSystemRandomPlay.Domain.Carritos;
 
 /// <summary>
-/// <see cref="Expirado"/> nunca se guarda: es el estado efectivo de un carrito <see cref="Activo"/> cuyo vencimiento ya pasó.
+/// En la base se guardan <c>Activo</c>, <c>Pagando</c>, <c>Pagado</c> y <c>Abandonado</c>. <c>Expirado</c> se calcula a
+/// partir del vencimiento (ver <see cref="Carrito.EstadoEn(EstadoCarrito, DateTimeOffset, DateTimeOffset)"/>).
 /// </summary>
 public enum EstadoCarrito
 {
     Activo,
     Abandonado,
-    Expirado
+    Expirado,
+    Pagando,
+    Pagado
 }

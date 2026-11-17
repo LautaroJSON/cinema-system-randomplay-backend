@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using CinemaSystemRandomPlay.Infrastructure.Persistence;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Funciones;
 using CinemaSystemRandomPlay.IntegrationTests.Compartido;
+using CinemaSystemRandomPlay.IntegrationTests.Pagos;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CinemaSystemRandomPlay.IntegrationTests.Carritos;
@@ -82,5 +83,51 @@ public class EndpointsPublicosTests : IClassFixture<CarritosApiFactory>
         };
 
         Assert.All(respuestas, r => Assert.Equal(HttpStatusCode.NotFound, r.StatusCode));
+    }
+
+    [Fact]
+    public async Task AvisoDeMercadoPago_SinToken_EsPublicoYLoProtegeLaFirma()
+    {
+        var cliente = _factory.CrearCliente();
+
+        Assert.Equal(HttpStatusCode.OK, (await cliente.EnviarAviso("no-existe")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await cliente.EnviarAviso("no-existe", firma: string.Empty)).StatusCode);
+    }
+
+    [Fact]
+    public async Task IniciarPago_SinToken_Responde401()
+    {
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CrearCliente().IniciarPago(Guid.NewGuid())).StatusCode);
+    }
+}
+
+/// <summary>Con Mercado Pago real (credenciales falsas: nunca se llama), la simulación de pagos no existe.</summary>
+public class ModoRealApiFactory : CarritosApiFactory
+{
+    protected override IReadOnlyDictionary<string, string?> ConfiguracionAdicional => new Dictionary<string, string?>
+    {
+        ["MercadoPago:Modo"] = "Real",
+        ["MercadoPago:AccessToken"] = "TEST-token-falso",
+        ["MercadoPago:UrlAvisos"] = "https://tunel.example/api/pagos/mercadopago/avisos"
+    };
+}
+
+public class SimulacionDePagosTests : IClassFixture<ModoRealApiFactory>
+{
+    private readonly ModoRealApiFactory _factory;
+
+    public SimulacionDePagosTests(ModoRealApiFactory factory)
+    {
+        _factory = factory;
+    }
+
+    [Fact]
+    public async Task ConMercadoPagoReal_ElEndpointDeSimulacionNoExiste()
+    {
+        var funcionId = await _factory.SembrarFuncion(SalaEntityConfiguration.SalaCentro1Id, TimeSpan.FromHours(3));
+        var carrito = await _factory.CrearCarritoOk(funcionId, "A1");
+
+        Assert.Equal(HttpStatusCode.NotFound, (await _factory.CrearCliente().SimularPago(carrito.Id)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _factory.CrearCliente().GetAsync("/api/dev/pagos-simulados/sim-pref-x")).StatusCode);
     }
 }

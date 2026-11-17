@@ -1,6 +1,13 @@
 using System.Net;
+using CinemaSystemRandomPlay.Application.Pagos.Commands;
+using CinemaSystemRandomPlay.Application.Pagos.Ports;
+using CinemaSystemRandomPlay.Domain.Compartido;
 using CinemaSystemRandomPlay.Domain.Funciones;
+using CinemaSystemRandomPlay.Domain.Pagos;
+using CinemaSystemRandomPlay.Infrastructure.Persistence;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Funciones;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CinemaSystemRandomPlay.IntegrationTests.Carritos;
 
@@ -154,5 +161,117 @@ public class CarritoConcurrenteTests : IClassFixture<CarritosApiFactory>
         foreach (var rechazada in respuestas.Where(r => r.StatusCode != HttpStatusCode.Created))
             await rechazada.AssertProblema(409, "funcion-sin-cupo");
         Assert.Equal(20, (await _factory.AsientosRetenidos(funcionId)).Count);
+    }
+
+    // --- Pago (feature 008) ---
+
+    /// <summary>Procesa un pago en su propio scope, como lo haría un aviso.</summary>
+    private async Task<ResultadoProcesamientoPago> ProcesarPago(string pagoId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<ProcesarPagoCommandHandler>().Handle(new ProcesarPagoCommand(pagoId));
+    }
+
+    private static async Task<T[]> EnParalelo<T>(IEnumerable<Func<Task<T>>> operaciones)
+    {
+        var puerta = new TaskCompletionSource();
+        var tareas = operaciones.Select(operacion => Task.Run(async () =>
+        {
+            await puerta.Task;
+            return await operacion();
+        })).ToList();
+
+        puerta.SetResult();
+        return await Task.WhenAll(tareas);
+    }
+
+    private async Task<(int Entradas, int Procesados, List<Devolucion> Devoluciones)> RegistrosDePago()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
+        return (await dbContext.Entradas.CountAsync(), await dbContext.PagosProcesados.CountAsync(),
+            await dbContext.Devoluciones.AsNoTracking().ToListAsync());
+    }
+
+    [Fact]
+    public async Task DiezAvisosSimultaneosDelMismoPago_AcreditanUnaSolaVez()
+    {
+        var funcionId = await _factory.SembrarFuncion(SalaEntityConfiguration.SalaCentro1Id, TimeSpan.FromHours(3));
+        var (carrito, _) = await _factory.CrearCarritoEnPago(funcionId, "F1", "F2");
+        var pagoId = _factory.Pagos.RegistrarPago(carrito.Id, EstadoPagoExterno.Aprobado, Dinero.Ars(11000m), _factory.Reloj.Ahora);
+
+        var resultados = await EnParalelo(Enumerable.Range(0, 10).Select(_ => (Func<Task<ResultadoProcesamientoPago>>)(() => ProcesarPago(pagoId))));
+
+        Assert.Equal(1, resultados.Count(r => r == ResultadoProcesamientoPago.Acreditado));
+        Assert.Equal(9, resultados.Count(r => r == ResultadoProcesamientoPago.YaProcesado));
+        var (entradas, procesados, devoluciones) = await RegistrosDePago();
+        Assert.Equal(2, entradas);
+        Assert.Equal(1, procesados);
+        Assert.Empty(devoluciones);
+        Assert.Single(await _factory.TiposDeOutbox(), t => t == "CarritoPagado");
+    }
+
+    [Fact]
+    public async Task DosIniciosDePagoSimultaneos_ExtiendenElVencimientoUnaSolaVez()
+    {
+        var funcionId = await _factory.SembrarFuncion(SalaEntityConfiguration.SalaCentro1Id, TimeSpan.FromHours(3));
+        var carrito = await _factory.CrearCarritoConEmail(funcionId, "F3");
+        var venceEn = (await _factory.CarritoSegunPortador(carrito)).GetProperty("venceEn").GetDateTimeOffset();
+
+        var respuestas = await EnParalelo(Enumerable.Range(0, 2)
+            .Select(_ => (Func<Task<HttpResponseMessage>>)(() => _factory.ClienteDe(carrito).IniciarPago(carrito.Id))));
+
+        Assert.All(respuestas, r => Assert.Equal(HttpStatusCode.OK, r.StatusCode));
+        var estado = await _factory.CarritoSegunPortador(carrito);
+        Assert.Equal(venceEn.AddMinutes(1), estado.GetProperty("venceEn").GetDateTimeOffset());
+        Assert.Single(await _factory.TiposDeOutbox(), t => t == "PagoIniciado");
+    }
+
+    [Fact]
+    public async Task DosPagosAprobadosDistintosSimultaneos_UnoAcreditaYElOtroSeDevuelve()
+    {
+        var funcionId = await _factory.SembrarFuncion(SalaEntityConfiguration.SalaCentro1Id, TimeSpan.FromHours(3));
+        var (carrito, _) = await _factory.CrearCarritoEnPago(funcionId, "F4", "F5");
+        var pagos = Enumerable.Range(0, 2)
+            .Select(_ => _factory.Pagos.RegistrarPago(carrito.Id, EstadoPagoExterno.Aprobado, Dinero.Ars(11000m), _factory.Reloj.Ahora))
+            .ToList();
+
+        var resultados = await EnParalelo(pagos.Select(p => (Func<Task<ResultadoProcesamientoPago>>)(() => ProcesarPago(p))));
+
+        Assert.Equal(1, resultados.Count(r => r == ResultadoProcesamientoPago.Acreditado));
+        Assert.Equal(1, resultados.Count(r => r == ResultadoProcesamientoPago.Devuelto));
+        var (entradas, _, devoluciones) = await RegistrosDePago();
+        Assert.Equal(2, entradas);
+        Assert.Equal(MotivoDevolucion.CarritoYaPagado, Assert.Single(devoluciones).Motivo);
+    }
+
+    [Fact]
+    public async Task PagoATiempoDeUnCarritoVencido_ContraUnaCreacionDeSusAsientos_NuncaVendeYRetieneElMismoAsiento()
+    {
+        var funcionId = await _factory.SembrarFuncion(SalaEntityConfiguration.SalaCentro1Id, TimeSpan.FromHours(3));
+        var (carrito, respuesta) = await _factory.CrearCarritoEnPago(funcionId, "F6");
+        var venceEn = respuesta.GetProperty("carrito").GetProperty("venceEn").GetDateTimeOffset();
+        var pagoId = _factory.Pagos.RegistrarPago(carrito.Id, EstadoPagoExterno.Aprobado, Dinero.Ars(5500m), venceEn.AddSeconds(-5));
+        _factory.Reloj.Avanzar(venceEn - _factory.Reloj.Ahora + TimeSpan.FromSeconds(10));
+
+        var puerta = new TaskCompletionSource();
+        var pago = Task.Run(async () => { await puerta.Task; return await ProcesarPago(pagoId); });
+        var creacion = Task.Run(async () => { await puerta.Task; return await _factory.CrearCliente().CrearCarrito(funcionId, "F6"); });
+        puerta.SetResult();
+        var resultado = await pago;
+        var creada = await creacion;
+
+        if (resultado == ResultadoProcesamientoPago.Acreditado)
+        {
+            await creada.AssertProblema(409, "asientos-no-disponibles");
+        }
+        else
+        {
+            Assert.Equal(ResultadoProcesamientoPago.Devuelto, resultado);
+            Assert.Equal(HttpStatusCode.Created, creada.StatusCode);
+            Assert.Equal(MotivoDevolucion.AsientosNoDisponibles, Assert.Single((await RegistrosDePago()).Devoluciones).Motivo);
+        }
+
+        await AssertNingunAsientoEnDosCarritos(funcionId);
     }
 }

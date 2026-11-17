@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CinemaSystemRandomPlay.Infrastructure.Carritos;
 
-/// <summary>Los asientos ocupados de una función son los de sus carritos activos y no vencidos.</summary>
+/// <summary>Los asientos ocupados de una función son los de sus carritos activos o en pago sin vencer, y los de los pagados.</summary>
 public class CarritosRetienenAsientos : IOcupacionAsientos
 {
     private readonly CinemaDbContext _dbContext;
@@ -25,7 +25,9 @@ public class CarritosRetienenAsientos : IOcupacionAsientos
 
         var asientos = await _dbContext.Carritos
             .AsNoTracking()
-            .Where(c => c.FuncionId == funcionId && c.Estado == EstadoCarrito.Activo && c.VenceEn > ahora)
+            .Where(c => c.FuncionId == funcionId &&
+                        (((c.Estado == EstadoCarrito.Activo || c.Estado == EstadoCarrito.Pagando) && c.VenceEn > ahora) ||
+                         c.Estado == EstadoCarrito.Pagado))
             .SelectMany(c => c.Asientos)
             .ToListAsync(cancellationToken);
 

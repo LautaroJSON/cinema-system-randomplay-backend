@@ -3,6 +3,7 @@ using CinemaSystemRandomPlay.Application.Compartido.Ports;
 using CinemaSystemRandomPlay.Domain.Carritos;
 using CinemaSystemRandomPlay.Domain.Catalogo;
 using CinemaSystemRandomPlay.Domain.Compartido;
+using CinemaSystemRandomPlay.Domain.Compradores;
 using CinemaSystemRandomPlay.Domain.Funciones;
 
 namespace CinemaSystemRandomPlay.Application.UnitTests.Carritos;
@@ -32,7 +33,19 @@ public static class CarritosTestSupport
         new(carrito.Id, carrito.Estado, carrito.CreadoEn, carrito.VenceEn, carrito.AbandonadoEn, carrito.EmailEntrega?.Valor,
             carrito.Asientos, funcion.Id, funcion.FechaHoraInicio, funcion.PeliculaId, peliculaTitulo,
             funcion.Sala!.SucursalId, funcion.Sala.Sucursal?.Nombre ?? string.Empty, funcion.Sala.Id, funcion.Sala.Nombre,
-            carrito.PrecioUnitario);
+            carrito.PrecioUnitario, carrito.UrlPago, carrito.PagoIniciadoEn, carrito.PagadoEn, carrito.EntregaEnviadaEn,
+            carrito.Entradas.Select(e => new EntradaLecturaDto(e.Codigo, e.Asiento, e.PeliculaTitulo, e.SucursalNombre, e.SalaNombre,
+                e.HoraInicio, e.PrecioUnitario)).ToList());
+
+    /// <summary>Indica el email de entrega e inicia el pago del carrito en <paramref name="ahora"/>.</summary>
+    public static Carrito EnPago(Carrito carrito, Funcion funcion, DateTimeOffset ahora, string preferenciaId = "pref-1")
+    {
+        carrito.IndicarEmailEntrega(EmailComprador.Crear("ana@example.com"), ahora);
+        var resultado = carrito.IniciarPago(preferenciaId, $"https://pago/{preferenciaId}", carrito.Asientos, ahora, funcion.FechaHoraInicio);
+        if (resultado.Tipo != TipoResultadoInicioPago.Iniciado)
+            throw new InvalidOperationException($"No se pudo iniciar el pago: {resultado.Tipo}");
+        return carrito;
+    }
 
     /// <summary>Unidad de trabajo falsa que solo ejecuta la operación.</summary>
     public sealed class UnidadDeTrabajoFake : IUnidadDeTrabajo

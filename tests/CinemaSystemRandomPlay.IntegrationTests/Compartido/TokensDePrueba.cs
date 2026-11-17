@@ -20,6 +20,9 @@ public static class TokensDePrueba
 
     public const string ClaveFirmaDePrueba = "clave-de-firma-de-invitados-de-pruebas-0123456789";
 
+    /// <summary>Clave secreta de los avisos (webhooks) de Mercado Pago en los tests (<c>MercadoPago:ClaveSecretaAvisos</c>).</summary>
+    public const string ClaveAvisosDePrueba = "clave-de-avisos-de-mercado-pago-de-pruebas";
+
     private static readonly JsonWebTokenHandler Handler = new();
 
     public static string Crear(string sub, string[]? roles = null, bool vencido = false, string emisor = Emisor, SecurityKey? clave = null)

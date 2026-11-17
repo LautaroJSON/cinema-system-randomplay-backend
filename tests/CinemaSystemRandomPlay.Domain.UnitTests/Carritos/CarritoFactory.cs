@@ -1,6 +1,8 @@
 using CinemaSystemRandomPlay.Domain.Carritos;
 using CinemaSystemRandomPlay.Domain.Compartido;
+using CinemaSystemRandomPlay.Domain.Compradores;
 using CinemaSystemRandomPlay.Domain.Funciones;
+using CinemaSystemRandomPlay.Domain.Pagos;
 
 namespace CinemaSystemRandomPlay.Domain.UnitTests.Carritos;
 
@@ -25,4 +27,33 @@ internal static class CarritoFactory
 
     public static Asiento[] Fila(char fila, int desde, int cantidad) =>
         Enumerable.Range(desde, cantidad).Select(n => new Asiento(fila, n)).ToArray();
+
+    /// <summary>Carrito con email de entrega y pago iniciado en <paramref name="ahora"/>.</summary>
+    public static Carrito CarritoEnPago(Funcion funcion, DateTimeOffset ahora, params Asiento[] asientos)
+    {
+        var carrito = CarritoDe(funcion, ahora, asientos);
+        carrito.IndicarEmailEntrega(EmailComprador.Crear("ana@example.com"), ahora);
+        var resultado = carrito.IniciarPago("pref-1", "https://pago/pref-1", carrito.Asientos, ahora, funcion.FechaHoraInicio);
+        if (resultado.Tipo != TipoResultadoInicioPago.Iniciado)
+            throw new InvalidOperationException($"No se pudo iniciar el pago: {resultado.Tipo}");
+        return carrito;
+    }
+
+    public static Carrito CarritoPagado(Funcion funcion, DateTimeOffset ahora, params Asiento[] asientos)
+    {
+        var carrito = CarritoEnPago(funcion, ahora, asientos);
+        carrito.MarcarPagado(new PagoAprobado("pago-1", carrito.Total, ahora), ahora, DatosDe(funcion), new GeneradorDeCodigosDePrueba());
+        return carrito;
+    }
+
+    public static DatosDeLaFuncion DatosDe(Funcion funcion) =>
+        new(funcion.Id, "Interstellar", "Centro", "Sala 1", funcion.FechaHoraInicio);
+}
+
+/// <summary>Códigos predecibles: COD-1, COD-2, ...</summary>
+internal sealed class GeneradorDeCodigosDePrueba : IGeneradorDeCodigos
+{
+    private int _siguiente;
+
+    public string Generar() => $"COD-{Interlocked.Increment(ref _siguiente)}";
 }

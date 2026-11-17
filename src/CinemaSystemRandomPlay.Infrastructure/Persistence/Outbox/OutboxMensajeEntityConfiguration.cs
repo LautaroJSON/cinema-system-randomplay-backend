@@ -5,6 +5,8 @@ namespace CinemaSystemRandomPlay.Infrastructure.Persistence.Outbox;
 
 public class OutboxMensajeEntityConfiguration : IEntityTypeConfiguration<OutboxMensaje>
 {
+    public const int LargoMaximoError = 1000;
+
     public void Configure(EntityTypeBuilder<OutboxMensaje> builder)
     {
         builder.ToTable("OutboxMensajes");
@@ -29,6 +31,21 @@ public class OutboxMensajeEntityConfiguration : IEntityTypeConfiguration<OutboxM
         builder.Property(m => m.ProcesadoEn)
             .HasConversion(v => v.HasValue ? v.Value.ToUniversalTime() : (DateTimeOffset?)null, v => v);
 
+        builder.Property(m => m.Intentos)
+            .IsRequired()
+            .HasDefaultValue(0);
+
+        builder.Property(m => m.ProximoIntentoEn)
+            .HasConversion(v => v.HasValue ? v.Value.ToUniversalTime() : (DateTimeOffset?)null, v => v);
+
+        builder.Property(m => m.UltimoError)
+            .HasMaxLength(LargoMaximoError);
+
+        builder.Property(m => m.FallidoEn)
+            .HasConversion(v => v.HasValue ? v.Value.ToUniversalTime() : (DateTimeOffset?)null, v => v);
+
         builder.HasIndex(m => new { m.ProcesadoEn, m.OcurridoEn });
+
+        builder.HasIndex(m => new { m.ProcesadoEn, m.FallidoEn, m.ProximoIntentoEn });
     }
 }

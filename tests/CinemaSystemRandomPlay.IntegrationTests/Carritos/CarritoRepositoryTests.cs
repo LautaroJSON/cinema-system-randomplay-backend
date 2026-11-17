@@ -50,7 +50,7 @@ public class CarritoRepositoryTests : IClassFixture<CarritosApiFactory>
             var repositorio = new CarritoRepository(dbContext);
             var funcion = await dbContext.Funciones.Include(f => f.Sala).FirstAsync(f => f.Id == funcionId);
             var carrito = (await repositorio.ObtenerPorId(carritoId))!;
-            var activos = await repositorio.ListarActivosDeFuncion(funcionId, ahora);
+            var activos = await repositorio.ListarQueRetienenAsientos(funcionId, ahora);
 
             var resultado = new AsignadorDeAsientos().Reemplazar(funcion, carrito, activos, [new Asiento('C', 6), new Asiento('C', 7)], ahora, new ReglasCarrito());
 
@@ -84,7 +84,7 @@ public class CarritoRepositoryTests : IClassFixture<CarritosApiFactory>
     }
 
     [Fact]
-    public async Task ListarActivosDeFuncion_ExcluyeVencidosAbandonadosYDeOtraFuncion()
+    public async Task ListarQueRetienenAsientos_ExcluyeVencidosAbandonadosYDeOtraFuncion()
     {
         var ahora = _factory.Reloj.Ahora;
         var funcionId = await _factory.SembrarFuncion(SalaEntityConfiguration.SalaCentro1Id, TimeSpan.FromHours(3));
@@ -101,7 +101,7 @@ public class CarritoRepositoryTests : IClassFixture<CarritosApiFactory>
         }
 
         using var lectura = _factory.Services.CreateScope();
-        var activos = await new CarritoRepository(lectura.ServiceProvider.GetRequiredService<CinemaDbContext>()).ListarActivosDeFuncion(funcionId, ahora);
+        var activos = await new CarritoRepository(lectura.ServiceProvider.GetRequiredService<CinemaDbContext>()).ListarQueRetienenAsientos(funcionId, ahora);
 
         Assert.Equal([activo], activos.Select(c => c.Id));
     }
