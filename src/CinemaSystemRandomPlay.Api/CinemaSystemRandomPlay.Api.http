@@ -58,3 +58,30 @@ Content-Type: application/json
 ### Abandonar el carrito (libera los asientos)
 POST {{CinemaSystemRandomPlay.Api_HostAddress}}/api/carritos/{{carritoId}}/abandono
 Authorization: Bearer {{token}}
+
+### Iniciar el pago (exige el email de entrega): devuelve la urlPago y el carrito pasa a Pagando (+1 minuto)
+POST {{CinemaSystemRandomPlay.Api_HostAddress}}/api/carritos/{{carritoId}}/pago
+Authorization: Bearer {{token}}
+
+### Simular un pago aprobado (solo Development con MercadoPago:Modo=Simulado); se procesa igual que un aviso
+POST {{CinemaSystemRandomPlay.Api_HostAddress}}/api/dev/pagos-simulados
+Content-Type: application/json
+
+{ "carritoId": "{{carritoId}}", "estado": "Aprobado" }
+
+### Simular un pago por otro monto: no paga el carrito y se devuelve solo
+POST {{CinemaSystemRandomPlay.Api_HostAddress}}/api/dev/pagos-simulados
+Content-Type: application/json
+
+{ "carritoId": "{{carritoId}}", "estado": "Aprobado", "monto": 1 }
+
+### Ver el carrito después de pagar: estado Pagado y entradas (el email llega a Mailpit, http://localhost:8025)
+GET {{CinemaSystemRandomPlay.Api_HostAddress}}/api/carritos/{{carritoId}}
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### Aviso de Mercado Pago sin firma: 401
+POST {{CinemaSystemRandomPlay.Api_HostAddress}}/api/pagos/mercadopago/avisos?data.id=123&type=payment
+Content-Type: application/json
+
+{ "type": "payment", "data": { "id": "123" } }

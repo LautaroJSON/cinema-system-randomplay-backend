@@ -27,19 +27,22 @@ public class CarritosController : ControllerBase
     private readonly ReemplazarSeleccionCommandHandler _reemplazarSeleccionCommandHandler;
     private readonly AbandonarCarritoCommandHandler _abandonarCarritoCommandHandler;
     private readonly IndicarEmailEntregaCommandHandler _indicarEmailEntregaCommandHandler;
+    private readonly IniciarPagoCommandHandler _iniciarPagoCommandHandler;
 
     public CarritosController(
         CrearCarritoCommandHandler crearCarritoCommandHandler,
         ObtenerCarritoQueryHandler obtenerCarritoQueryHandler,
         ReemplazarSeleccionCommandHandler reemplazarSeleccionCommandHandler,
         AbandonarCarritoCommandHandler abandonarCarritoCommandHandler,
-        IndicarEmailEntregaCommandHandler indicarEmailEntregaCommandHandler)
+        IndicarEmailEntregaCommandHandler indicarEmailEntregaCommandHandler,
+        IniciarPagoCommandHandler iniciarPagoCommandHandler)
     {
         _crearCarritoCommandHandler = crearCarritoCommandHandler;
         _obtenerCarritoQueryHandler = obtenerCarritoQueryHandler;
         _reemplazarSeleccionCommandHandler = reemplazarSeleccionCommandHandler;
         _abandonarCarritoCommandHandler = abandonarCarritoCommandHandler;
         _indicarEmailEntregaCommandHandler = indicarEmailEntregaCommandHandler;
+        _iniciarPagoCommandHandler = iniciarPagoCommandHandler;
     }
 
     /// <summary>Crea un carrito que retiene los asientos elegidos de una función.</summary>
@@ -81,7 +84,12 @@ public class CarritosController : ControllerBase
     }
 
     /// <summary>Obtiene el carrito del token.</summary>
-    /// <remarks>Sirve para refrescar el estado y el vencimiento; un carrito abandonado o expirado se sigue pudiendo consultar.</remarks>
+    /// <remarks>
+    /// Sirve para refrescar el estado y el vencimiento; un carrito abandonado o expirado se sigue pudiendo consultar. Con el carrito
+    /// en <c>Pagando</c>, antes de responder verifica con Mercado Pago si hay un pago aprobado que todavía no se avisó; si Mercado
+    /// Pago no responde, devuelve el estado conocido. Al volver de la página de pago, consultar cada 2 segundos mientras el estado
+    /// sea <c>Pagando</c>.
+    /// </remarks>
     /// <param name="carritoId">Carrito del token.</param>
     /// <response code="200">El carrito.</response>
     /// <response code="404"><c>carrito-no-encontrado</c>: no existe o el token es de otro carrito.</response>
@@ -107,7 +115,7 @@ public class CarritosController : ControllerBase
     /// <response code="200">El carrito con la nueva selección.</response>
     /// <response code="400"><c>pedido-invalido</c>: selección mal formada. Ver <c>errors</c>.</response>
     /// <response code="404"><c>carrito-no-encontrado</c>: no existe o el token es de otro carrito.</response>
-    /// <response code="409"><c>asientos-no-disponibles</c> (ver <c>asientos</c>), <c>funcion-sin-cupo</c> o <c>carrito-no-activo</c> (ver <c>estadoActual</c>).</response>
+    /// <response code="409"><c>asientos-no-disponibles</c> (ver <c>asientos</c>), <c>funcion-sin-cupo</c>, <c>carrito-no-activo</c> (ver <c>estadoActual</c>) o <c>carrito-en-pago</c>.</response>
     /// <response code="410"><c>funcion-no-disponible</c>: la función ya comenzó.</response>
     /// <response code="422"><c>asientos-inexistentes</c>: hay asientos que no existen en la sala (ver <c>asientos</c>).</response>
     [HttpPut("api/carritos/{carritoId:guid}/asientos")]
@@ -132,7 +140,7 @@ public class CarritosController : ControllerBase
     /// <param name="carritoId">Carrito del token.</param>
     /// <response code="200">El carrito, ya en estado <c>Abandonado</c>.</response>
     /// <response code="404"><c>carrito-no-encontrado</c>: no existe o el token es de otro carrito.</response>
-    /// <response code="409"><c>carrito-no-activo</c>: ya estaba abandonado o expirado (ver <c>estadoActual</c>).</response>
+    /// <response code="409"><c>carrito-no-activo</c>: ya estaba abandonado, expirado o pagado (ver <c>estadoActual</c>); <c>carrito-en-pago</c>: el pago está en curso.</response>
     [HttpPost("api/carritos/{carritoId:guid}/abandono")]
     [ProducesResponseType<CarritoResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
@@ -151,7 +159,7 @@ public class CarritosController : ControllerBase
     /// <response code="200">El carrito con el email de entrega.</response>
     /// <response code="400"><c>pedido-invalido</c>: el email es inválido (ver <c>errors.email</c>).</response>
     /// <response code="404"><c>carrito-no-encontrado</c>: no existe o el token es de otro carrito.</response>
-    /// <response code="409"><c>carrito-no-activo</c>: el carrito está abandonado o expirado (ver <c>estadoActual</c>).</response>
+    /// <response code="409"><c>carrito-no-activo</c>: el carrito está abandonado, expirado o pagado (ver <c>estadoActual</c>); <c>carrito-en-pago</c>: el pago está en curso y el email quedó fijo.</response>
     [HttpPut("api/carritos/{carritoId:guid}/email-entrega")]
     [ProducesResponseType<CarritoResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
@@ -166,6 +174,35 @@ public class CarritosController : ControllerBase
             new IndicarEmailEntregaCommand(carritoId, delToken, request.Email), cancellationToken);
 
         return Respuesta(resultado);
+    }
+
+    /// <summary>Inicia el pago del carrito en Mercado Pago y devuelve la URL de pago.</summary>
+    /// <remarks>
+    /// Exige un carrito activo con email de entrega. El carrito pasa a <c>Pagando</c> y su vencimiento gana un minuto, sin pasar
+    /// del inicio de la función; la página de pago deja de aceptar pagos en ese mismo momento. Mientras está en <c>Pagando</c> no
+    /// se pueden cambiar los asientos ni el email, ni abandonarlo. Llamarlo de nuevo devuelve la misma URL sin extender otra vez el
+    /// vencimiento. Se paga en la página de Mercado Pago: esta API nunca recibe datos de tarjeta.
+    /// </remarks>
+    /// <param name="carritoId">Carrito del token.</param>
+    /// <response code="200">URL de pago y carrito en <c>Pagando</c>.</response>
+    /// <response code="404"><c>carrito-no-encontrado</c>: no existe o el token es de otro carrito.</response>
+    /// <response code="409"><c>email-entrega-faltante</c>, <c>carrito-no-activo</c> (expirado, abandonado o pagado; ver <c>estadoActual</c>) o <c>carrito-modificado</c>: la selección cambió mientras se creaba el pago; reintentar.</response>
+    /// <response code="503"><c>pago-no-disponible</c>: Mercado Pago no respondió; el carrito no cambió.</response>
+    [HttpPost("api/carritos/{carritoId:guid}/pago")]
+    [ProducesResponseType<PagoIniciadoResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
+    public async Task<IActionResult> IniciarPago(Guid carritoId, CancellationToken cancellationToken)
+    {
+        if (User.ObtenerCarritoId() is not { } delToken)
+            return Unauthorized();
+
+        var resultado = await _iniciarPagoCommandHandler.Handle(new IniciarPagoCommand(carritoId, delToken), cancellationToken);
+
+        return resultado.Estado == EstadoOperacionCarrito.Ok
+            ? Ok(PagoIniciadoResponse.DesdeDto(resultado.UrlPago!, resultado.Carrito!))
+            : Problema(resultado);
     }
 
     private IActionResult Respuesta(ResultadoOperacionCarrito resultado) =>
@@ -192,6 +229,14 @@ public class CarritosController : ControllerBase
         EstadoOperacionCarrito.CarritoNoActivo => ProblemasDeNegocio.Crear(StatusCodes.Status409Conflict,
             "El carrito ya no está activo.", "carrito-no-activo",
             new Dictionary<string, object?> { ["estadoActual"] = resultado.EstadoActual!.Value.ToString() }),
+        EstadoOperacionCarrito.CarritoEnPago => ProblemasDeNegocio.Crear(StatusCodes.Status409Conflict,
+            "El carrito está en proceso de pago: no se puede modificar ni abandonar.", "carrito-en-pago"),
+        EstadoOperacionCarrito.EmailEntregaFaltante => ProblemasDeNegocio.Crear(StatusCodes.Status409Conflict,
+            "Falta el email de entrega: indicarlo antes de pagar.", "email-entrega-faltante"),
+        EstadoOperacionCarrito.CarritoModificado => ProblemasDeNegocio.Crear(StatusCodes.Status409Conflict,
+            "La selección del carrito cambió mientras se creaba el pago. Reintentar.", "carrito-modificado"),
+        EstadoOperacionCarrito.PagoNoDisponible => ProblemasDeNegocio.Crear(StatusCodes.Status503ServiceUnavailable,
+            "El pago no está disponible por el momento. Reintentar más tarde.", "pago-no-disponible"),
         _ => throw new InvalidOperationException($"{resultado.Estado} no es un rechazo.")
     };
 

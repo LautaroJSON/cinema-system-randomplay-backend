@@ -45,7 +45,7 @@ public class ReemplazarSeleccionCommandHandler : OperacionSobreCarritoHandler
 
         return await Ejecutar(command.CarritoId, command.CarritoDelToken, async (funcion, carrito, ahora, ct) =>
         {
-            var activos = await CarritoRepository.ListarActivosDeFuncion(funcion.Id, ahora, ct);
+            var activos = await CarritoRepository.ListarQueRetienenAsientos(funcion.Id, ahora, ct);
             var seleccion = _asignador.Reemplazar(funcion, carrito, activos, validacion.Asientos!, ahora, _reglas);
 
             if (seleccion.Tipo != TipoResultadoSeleccion.Ok)

@@ -2,7 +2,8 @@ namespace CinemaSystemRandomPlay.Domain.Carritos;
 
 public interface ICarritoRepository
 {
-    Task<IReadOnlyList<Carrito>> ListarActivosDeFuncion(Guid funcionId, DateTimeOffset ahora, CancellationToken cancellationToken = default);
+    /// <summary>Carritos de la función que retienen asientos: activos o en pago sin vencer, y pagados.</summary>
+    Task<IReadOnlyList<Carrito>> ListarQueRetienenAsientos(Guid funcionId, DateTimeOffset ahora, CancellationToken cancellationToken = default);
 
     Task<Carrito?> ObtenerPorId(Guid carritoId, CancellationToken cancellationToken = default);
 

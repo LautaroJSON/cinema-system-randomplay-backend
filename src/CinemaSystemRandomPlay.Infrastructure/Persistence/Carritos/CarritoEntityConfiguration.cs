@@ -46,6 +46,24 @@ public class CarritoEntityConfiguration : IEntityTypeConfiguration<Carrito>
             precio.Property(d => d.Moneda).HasColumnName("PrecioUnitario_Moneda").HasConversion<string>().HasMaxLength(3).IsRequired();
         });
 
+        builder.Property(c => c.PreferenciaPagoId).HasMaxLength(100);
+
+        builder.Property(c => c.UrlPago).HasMaxLength(500);
+
+        builder.Property(c => c.PagoIniciadoEn)
+            .HasConversion(v => v.HasValue ? v.Value.ToUniversalTime() : (DateTimeOffset?)null, v => v);
+
+        builder.Property(c => c.PagoId).HasMaxLength(50);
+
+        builder.Property(c => c.PagoAprobadoEn)
+            .HasConversion(v => v.HasValue ? v.Value.ToUniversalTime() : (DateTimeOffset?)null, v => v);
+
+        builder.Property(c => c.PagadoEn)
+            .HasConversion(v => v.HasValue ? v.Value.ToUniversalTime() : (DateTimeOffset?)null, v => v);
+
+        builder.Property(c => c.EntregaEnviadaEn)
+            .HasConversion(v => v.HasValue ? v.Value.ToUniversalTime() : (DateTimeOffset?)null, v => v);
+
         builder.Ignore(c => c.Total);
 
         builder.HasOne<Funcion>()
@@ -75,6 +93,16 @@ public class CarritoEntityConfiguration : IEntityTypeConfiguration<Carrito>
 
         builder.Navigation(c => c.Asientos)
             .HasField("_asientos")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // Entradas: entidad propia del agregado, configurada en EntradaEntityConfiguration. Se borran con el carrito.
+        builder.HasMany(c => c.Entradas)
+            .WithOne()
+            .HasForeignKey(e => e.CarritoId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(c => c.Entradas)
+            .HasField("_entradas")
             .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

@@ -46,6 +46,7 @@ proyecto — un único monolito modular, sin microservicios.
 | Precios de las Funciones | [specs/005-precios-funciones](specs/005-precios-funciones/spec.md) | ✅ Precio por entrada (ARS) en horarios y mapa; la reserva congela el precio unitario e informa su total |
 | Comprador Invitado con Email Verificado | [specs/006-comprador-invitado-email](specs/006-comprador-invitado-email/spec.md) | ♻️ Reemplazada por la 007: la verificación por email no frenaba el acaparamiento |
 | Carrito Anónimo con Retención Corta | [specs/007-carrito-anonimo](specs/007-carrito-anonimo/spec.md) | ✅ Sin cuenta, login ni verificación: elegir asientos crea un carrito con un token, retenido 5 minutos; la selección se reemplaza de forma atómica sin extender el reloj, se puede abandonar y se indica el email de entrega. Topes por carrito, por función y por origen |
+| Pago del Carrito con Mercado Pago | [specs/008-pago-mercado-pago](specs/008-pago-mercado-pago/spec.md) | ✅ Checkout Pro con **credenciales de prueba** (dinero ficticio): el carrito pasa a `Pagando` (+1 minuto), el webhook firmado confirma el pago consultándolo a Mercado Pago, se emite una entrada por asiento y el email de entrega sale por el Outbox. Pagos tardíos, duplicados o por otro monto se devuelven solos |
 
 Las tres primeras son features de **solo lectura y acceso público**. El carrito (007) es lo que modifica estado:
 el comprador es **anónimo** y su única credencial es el **token del carrito** que recibe al crearlo. `Sucursal`,
@@ -68,20 +69,28 @@ API: sus datos se cargan sembrados directamente en la base de datos (ver
 8. **Email de entrega**: `PUT /api/carritos/{id}/email-entrega` → se guarda sin verificar, para enviar la entrada.
 9. **Ver o abandonar**: `GET /api/carritos/{id}`, `POST /api/carritos/{id}/abandono` (libera los asientos al instante).
 
-El próximo paso del flujo es el **pago** del carrito (feature pendiente), que enviará la entrada al email indicado.
+10. **Pagar** (con el token): `POST /api/carritos/{id}/pago` → devuelve la `urlPago` de Mercado Pago. El carrito pasa a
+    `Pagando` y gana un minuto (sin pasar del inicio de la función); desde ahí no se cambian asientos ni email.
+11. **Pagar en Mercado Pago**: el comprador paga en esa página (la API nunca ve datos de tarjeta). Mercado Pago avisa
+    por webhook y la API marca el carrito `Pagado` con una entrada por asiento.
+12. **Volver al sitio**: el front consulta `GET /api/carritos/{id}` cada 2 segundos mientras diga `Pagando`; la
+    consulta también verifica el pago con Mercado Pago por si el aviso todavía no llegó. Las entradas llegan por email.
 
 ## Cómo levantar el sistema
 
 ### Opción rápida: Docker Compose (recomendada)
 
-Levanta Postgres y la Api juntos, aplica las migraciones y siembra datos de desarrollo
+Levanta Postgres, Mailpit y la Api juntos, aplica las migraciones y siembra datos de desarrollo
 automáticamente — un solo comando:
 
 ```bash
 docker compose up --build
 ```
 
-La Api queda escuchando en `http://localhost:8080`.
+La Api queda escuchando en `http://localhost:8080`. Los pagos usan la pasarela **simulada** (sin túnel ni
+credenciales: `POST /api/dev/pagos-simulados`) y los emails de entrega se ven en Mailpit, en `http://localhost:8025`.
+Para probar con Mercado Pago real (credenciales de prueba y un túnel), ver
+[specs/008-pago-mercado-pago/quickstart.md](specs/008-pago-mercado-pago/quickstart.md).
 
 Para bajar todo:
 
@@ -136,10 +145,13 @@ si no existiera.
 | `GET` | `/api/funciones/peliculas/{peliculaId}/sucursales/{sucursalId}/horarios-hoy` | Horarios de hoy disponibles en esa Sucursal |
 | `GET` | `/api/funciones/{funcionId}/asientos` | Mapa de asientos de una función: filas de la Sala y asientos disponibles, sin los retenidos por carritos activos (`404` si no existe, `410` si ya comenzó) |
 | `POST` | `/api/funciones/{funcionId}/carritos` | Crea un carrito con 1 a 10 asientos (todo o nada) y devuelve el carrito y su `token` (`201`). `400`/`404`/`409 asientos-no-disponibles` o `funcion-sin-cupo`/`410`/`422`; `403 desafio-rechazado`; `429 demasiados-pedidos` si se superó el límite por origen |
-| `GET` | `/api/carritos/{carritoId}` | 🔒 Portador. El carrito, con su estado efectivo (`Activo`, `Expirado`, `Abandonado`) |
-| `PUT` | `/api/carritos/{carritoId}/asientos` | 🔒 Portador. Reemplaza la selección (atómico, todo o nada, sin extender el vencimiento). `409 carrito-no-activo` si venció o se abandonó |
-| `POST` | `/api/carritos/{carritoId}/abandono` | 🔒 Portador. Abandona el carrito y libera sus asientos (`409 carrito-no-activo` si ya no está activo) |
-| `PUT` | `/api/carritos/{carritoId}/email-entrega` | 🔒 Portador. Guarda el email de entrega, normalizado y sin verificar (`400` si es inválido) |
+| `GET` | `/api/carritos/{carritoId}` | 🔒 Portador. El carrito, con su estado efectivo (`Activo`, `Pagando`, `Pagado`, `Expirado`, `Abandonado`), el `pago` y las `entradas`. En `Pagando` verifica antes el pago con Mercado Pago |
+| `PUT` | `/api/carritos/{carritoId}/asientos` | 🔒 Portador. Reemplaza la selección (atómico, todo o nada, sin extender el vencimiento). `409 carrito-no-activo` si venció o se abandonó; `409 carrito-en-pago` durante el pago |
+| `POST` | `/api/carritos/{carritoId}/abandono` | 🔒 Portador. Abandona el carrito y libera sus asientos (`409 carrito-no-activo` si ya no está activo; `409 carrito-en-pago` durante el pago) |
+| `PUT` | `/api/carritos/{carritoId}/email-entrega` | 🔒 Portador. Guarda el email de entrega, normalizado y sin verificar (`400` si es inválido; `409 carrito-en-pago` durante el pago) |
+| `POST` | `/api/carritos/{carritoId}/pago` | 🔒 Portador. Inicia el pago en Mercado Pago y devuelve la `urlPago`; idempotente. `409 email-entrega-faltante`, `carrito-no-activo` o `carrito-modificado`; `503 pago-no-disponible` |
+| `POST` | `/api/pagos/mercadopago/avisos` | Pública, protegida por la firma `x-signature`. Webhook de Mercado Pago (`401` sin firma válida) |
+| `POST` | `/api/dev/pagos-simulados` | Solo `Development`/`Testing` con la pasarela simulada: simula un pago `Aprobado`, `Rechazado` o `Pendiente` |
 
 En el mapa de asientos solo se envían los asientos **disponibles**. Todo asiento de la fila (de 1 a
 `cantidadAsientos`) que no figure en `asientosDisponibles` está ocupado, y el front debe mostrarlo
@@ -149,7 +161,8 @@ Contratos completos, incluyendo códigos de error y ejemplos de body, en
 [`specs/001-catalogo-peliculas/contracts`](specs/001-catalogo-peliculas/contracts/catalogo-api.md),
 [`specs/002-horarios-sucursal-hoy/contracts`](specs/002-horarios-sucursal-hoy/contracts/funciones-api.md)
 [`specs/003-mapa-asientos-funcion/contracts`](specs/003-mapa-asientos-funcion/contracts/mapa-asientos-api.md)
-y [`specs/007-carrito-anonimo/contracts`](specs/007-carrito-anonimo/contracts/carritos-api.md).
+[`specs/007-carrito-anonimo/contracts`](specs/007-carrito-anonimo/contracts/carritos-api.md)
+y [`specs/008-pago-mercado-pago/contracts`](specs/008-pago-mercado-pago/contracts/pagos-api.md).
 En `Development` también está disponible el explorador OpenAPI en `/openapi/v1.json`.
 
 ### Forma de la respuesta del mapa de asientos
@@ -188,7 +201,8 @@ crearlo) y `total` (`precioUnitario × asientos`, que cambia si se reemplaza la 
 
 - **Carrito** (sección `Carritos` de `appsettings.json`): `MinutosRetencion` (5), `MaximoAsientosPorCarrito` (10),
   `PorcentajeMaximoRetenidoPorFuncion` (50: entre todos los carritos activos de una función no se retiene más de la
-  mitad de la sala, redondeado hacia abajo, mínimo 1), `CreacionesPorOrigen` (10) y `VentanaCreacionMinutos` (10).
+  mitad de la sala, redondeado hacia abajo, mínimo 1; cuentan los carritos activos y en pago, no los asientos ya
+  vendidos), `CreacionesPorOrigen` (10) y `VentanaCreacionMinutos` (10).
 - **Token del carrito** (sección `Invitados`): `ClaveFirma` (obligatoria, mínimo 32 bytes; sin ella la API no
   arranca) y `TokenMinutosVigencia` (60). En desarrollo local:
   `dotnet user-secrets set "Invitados:ClaveFirma" "<al-menos-32-bytes>" --project src/CinemaSystemRandomPlay.Api`
@@ -202,9 +216,18 @@ crearlo) y `total` (`precioUnitario × asientos`, que cambia si se reemplaza la 
 - **Desafío anti-bots**: la creación de carritos pasa por el puerto `IDesafioAntiBots` (campo opcional `desafio`
   del pedido). La implementación registrada, `DesafioAntiBotsDesactivado`, aprueba siempre; sumar un CAPTCHA es
   registrar otra implementación.
-- **Email**: el email de entrega se guarda en el carrito y no se verifica. Todavía no se envía nada: el puerto
-  `IEnviadorDeEmail` lo usará la feature de pago. En `Development` y `Testing` está registrado un registrador que
-  escribe en el log; en otros entornos, una implementación que falla de forma explícita.
+- **Email** (sección `Email`): el email de entrega no se verifica. Las entradas se envían desde el Outbox después de
+  confirmar el pago. `Proveedor`: `Registrador` (solo escribe en el log; `Development` y `Testing`) o `Smtp`
+  (`Email:Smtp:Host`, `Puerto`, `Usuario`, `Clave`, `UsarTls`; `Remitente`). `docker compose` usa Mailpit; un
+  proveedor real como Resend se configura por SMTP. Sin proveedor fuera de desarrollo, el envío falla de forma
+  explícita y el Outbox lo deja registrado como fallido.
+- **Mercado Pago** (sección `MercadoPago`): `Modo` (`Simulado` por defecto, o `Real`), `AccessToken` y
+  `ClaveSecretaAvisos` (**secretos**: solo con `dotnet user-secrets` o variables de entorno, nunca en archivos
+  versionados), `UrlAvisos` (URL pública del webhook, por ejemplo un túnel), `UrlRetorno` (vuelta al front;
+  `{carritoId}` se reemplaza) y `SegundosTimeoutConsulta` (3). Solo se usan **credenciales de prueba**: el dinero es
+  ficticio. Con `Real`, la API no arranca sin `AccessToken`, `ClaveSecretaAvisos` y `UrlAvisos`.
+- **Outbox** (sección `Outbox`): `Habilitado`, `IntervaloSegundos` (2) y `MaximoIntentos` (8). Reintenta con espera
+  exponencial (10 s, 20 s, 40 s… hasta 1 hora) y deja los mensajes que agotan los intentos con `FallidoEn`.
 - **Migraciones que descartan reservas**: la de la feature 006 (`AddCompradorEmailEnReservas`) y la de la 007
   (`ReemplazarReservasPorCarritos`, que además elimina `VerificacionesEmail` y crea `Carritos`) **descartan las
   reservas existentes**. Se niegan a hacerlo si hay reservas y no se definió `CINEMA_PERMITIR_DESCARTE_RESERVAS=true`;
@@ -214,19 +237,25 @@ crearlo) y `total` (`precioUnitario × asientos`, que cambia si se reemplaza la 
 
 Simplificaciones deliberadas, documentadas en el `research.md` de cada feature:
 
-- **Outbox sin publicador** (desviación del Principio VI de la constitución): crear, reemplazar y abandonar un
-  carrito escribe `CarritoCreado` / `SeleccionReemplazada` / `CarritoAbandonado` en `OutboxMensajes` dentro de la
-  misma transacción, pero no existe todavía el proceso que los publica (`ProcesadoEn` queda en `NULL`). Tampoco se
-  emite un evento cuando un carrito vence (el vencimiento se calcula contra el reloj). Ambos llegan con la feature de
-  notificaciones en tiempo real (SignalR). Ver `specs/004-reserva-asientos-funcion/plan.md`, Complexity Tracking.
+- **Eventos del Outbox sin consumidor**: el procesador del Outbox (feature 008) entrega `CarritoPagado` (email) y
+  `DevolucionSolicitada` (devolución). `CarritoCreado`, `SeleccionReemplazada`, `CarritoAbandonado` y `PagoIniciado`
+  todavía no tienen manejador y se marcan procesados sin acción hasta la feature de notificaciones en tiempo real
+  (SignalR). Tampoco se emite un evento cuando un carrito vence (el vencimiento se calcula contra el reloj).
+- **Email at-least-once**: si el proceso cae justo después de que el servidor SMTP aceptó el email y antes de marcar
+  la entrega, el email puede salir dos veces. Las devoluciones no tienen ese hueco: usan la clave de idempotencia de
+  Mercado Pago.
+- **Sin barrido de pagos pendientes**: si el webhook no llega y nadie consulta el carrito, el pago se procesa con el
+  próximo aviso o consulta; si para entonces el carrito venció y perdió sus asientos, se devuelve.
+- **Avisos sin control de antigüedad**: no se verifica el `ts` de la firma; un aviso reenviado solo dispara otra
+  consulta a Mercado Pago, que la idempotencia vuelve inocua.
+- **Credenciales de producción**: no se pueden distinguir por formato de las de prueba (las de usuarios de prueba
+  también empiezan con `APP_USR-`); el resguardo es configurarlas solo por secretos y usar credenciales de prueba.
 - **Límite de creación de carritos por origen**: usa el rate limiter de ASP.NET Core, por proceso (con varias
   instancias el tope efectivo se multiplica) y, detrás de un proxy, requiere configurar `ForwardedHeaders` para
   que la IP sea la del cliente. Clientes que comparten una IP comparten el límite. El tope global por función,
   en cambio, es exacto para todas las instancias (se calcula en la base, bajo el bloqueo de la función).
 - **Carritos viejos sin purga**: los carritos expirados y abandonados quedan en la base como historial.
 - **Token perdido**: no hay forma de recuperarlo; el carrito vence solo a los 5 minutos.
-- **Email sin servicio real**: `IEnviadorDeEmail` está registrado pero sin uso hasta la feature de pago; solo
-  existe el registrador de desarrollo.
 - **Desafío anti-bots**: solo existe el punto de extensión; no hay CAPTCHA real.
 - **CORS**: no está configurado; un front web servido desde otro origen necesita configurarlo o
   usar un proxy en desarrollo.
@@ -237,7 +266,8 @@ El testing se aplica por criterio (Principio V de la constitución): se testean 
 no triviales, los casos de uso que modifican estado y las consultas con lógica de filtrado o fechas; el
 código trivial (DTOs, registro de DI, mapeos 1 a 1) no lleva tests. La única obligación sin excepción
 es el test de concurrencia de la reserva de asientos (`Carritos/CarritoConcurrenteTests`: creaciones,
-reemplazos y tope por función simultáneos). Cuando se testea persistencia, restricciones o
+reemplazos, tope por función, avisos de pago e inicios de pago simultáneos). Los tests nunca llaman a Mercado Pago:
+usan la pasarela simulada. Cuando se testea persistencia, restricciones o
 concurrencia, se hace contra un **Postgres real** levantado con Testcontainers — el provider InMemory
 de EF Core no se usa para eso.
 
@@ -255,6 +285,7 @@ su propia base).
 
 - .NET 10 / C# 12 / ASP.NET Core (Controllers)
 - Entity Framework Core + Npgsql (PostgreSQL — mismo motor en desarrollo, tests y producción)
+- SDK oficial de Mercado Pago (`mercadopago-sdk`, Checkout Pro) · MailKit (SMTP) · Mailpit en desarrollo
 - xUnit + NSubstitute (unit tests) · Testcontainers.PostgreSql + `WebApplicationFactory` (tests de integración)
 - Docker / Docker Compose para el entorno de desarrollo
 
@@ -265,7 +296,7 @@ su propia base).
 specs/                # Especificaciones, planes, research y tasks por feature
 src/                  # Código fuente (Domain / Application / Infrastructure / Api)
 tests/                # Domain.UnitTests / Application.UnitTests / IntegrationTests
-docker-compose.yml    # Levanta Postgres + Api para desarrollo local
+docker-compose.yml    # Levanta Postgres + Mailpit + Api para desarrollo local
 ```
 
 ## Flujo de desarrollo

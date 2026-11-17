@@ -6,6 +6,7 @@ public enum TipoResultadoSeleccion
 {
     Ok,
     CarritoNoActivo,
+    CarritoEnPago,
     FuncionNoDisponible,
     AsientosInexistentes,
     AsientosNoDisponibles,
@@ -27,6 +28,8 @@ public sealed record ResultadoSeleccion(
 
     public static ResultadoSeleccion CarritoNoActivo(EstadoCarrito estadoActual) => new(TipoResultadoSeleccion.CarritoNoActivo, EstadoActual: estadoActual);
 
+    public static ResultadoSeleccion CarritoEnPago() => new(TipoResultadoSeleccion.CarritoEnPago, EstadoActual: EstadoCarrito.Pagando);
+
     public static ResultadoSeleccion FuncionNoDisponible() => new(TipoResultadoSeleccion.FuncionNoDisponible);
 
     public static ResultadoSeleccion AsientosInexistentes(IReadOnlyList<Asiento> asientos) => new(TipoResultadoSeleccion.AsientosInexistentes, Asientos: asientos);
@@ -37,7 +40,7 @@ public sealed record ResultadoSeleccion(
 }
 
 /// <summary>
-/// Reglas que cruzan carritos: un asiento no puede estar retenido por dos carritos activos y los asientos retenidos de una
+/// Reglas que cruzan carritos: un asiento no puede estar retenido por dos carritos (activos, en pago o pagados) y los asientos retenidos de una
 /// función no pueden superar el tope global. Quien lo invoca debe haber serializado los pedidos de la función.
 /// </summary>
 public class AsignadorDeAsientos
@@ -69,6 +72,9 @@ public class AsignadorDeAsientos
         ReglasCarrito reglas)
     {
         var estado = carrito.EstadoEn(ahora);
+        if (estado == EstadoCarrito.Pagando)
+            return ResultadoSeleccion.CarritoEnPago();
+
         if (estado != EstadoCarrito.Activo)
             return ResultadoSeleccion.CarritoNoActivo(estado);
 
@@ -101,12 +107,15 @@ public class AsignadorDeAsientos
             .Where(c => c.FuncionId == funcion.Id && c.RetieneAsientosEn(ahora) && (propio is null || c.Id != propio.Id))
             .ToList();
 
-        var retenidosPorOtros = otros.SelectMany(c => c.Asientos).ToHashSet();
-        var noDisponibles = Ordenados(pedidos.Where(retenidosPorOtros.Contains));
+        var ocupadosPorOtros = otros.SelectMany(c => c.Asientos).ToHashSet();
+        var noDisponibles = Ordenados(pedidos.Where(ocupadosPorOtros.Contains));
         if (noDisponibles.Count > 0)
             return ResultadoSeleccion.AsientosNoDisponibles(noDisponibles);
 
-        if (retenidosPorOtros.Count + pedidos.Count > reglas.TopeRetenidoPara(funcion.Sala!.TotalAsientos))
+        // El tope global limita la retención temporal (carritos activos o en pago), no las ventas: los asientos de carritos
+        // pagados no están disponibles, pero no cuentan para el tope (spec 007 FR-022; spec 008).
+        var retenidosPorOtros = otros.Where(c => c.Estado != EstadoCarrito.Pagado).Sum(c => c.Asientos.Count);
+        if (retenidosPorOtros + pedidos.Count > reglas.TopeRetenidoPara(funcion.Sala!.TotalAsientos))
             return ResultadoSeleccion.FuncionSinCupo();
 
         return null;

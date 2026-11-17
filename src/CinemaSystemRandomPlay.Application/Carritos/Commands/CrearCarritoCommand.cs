@@ -79,7 +79,7 @@ public class CrearCarritoCommandHandler
                 return (ResultadoOperacionCarrito.FuncionNoEncontrada(), Guid.Empty);
 
             var ahora = _reloj.Ahora;
-            var activos = await _carritoRepository.ListarActivosDeFuncion(funcion.Id, ahora, ct);
+            var activos = await _carritoRepository.ListarQueRetienenAsientos(funcion.Id, ahora, ct);
             var seleccion = _asignador.Crear(funcion, activos, pedidos, ahora, _reglas);
 
             if (seleccion.Tipo != TipoResultadoSeleccion.Ok)

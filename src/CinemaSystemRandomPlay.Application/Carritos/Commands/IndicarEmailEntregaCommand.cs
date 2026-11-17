@@ -34,7 +34,7 @@ public class IndicarEmailEntregaCommandHandler : OperacionSobreCarritoHandler
         {
             var resultado = carrito.IndicarEmailEntrega(email!, ahora);
 
-            return Task.FromResult(resultado.Indicado ? null : ResultadoOperacionCarrito.CarritoNoActivo(resultado.EstadoActual));
+            return Task.FromResult(resultado.Indicado ? null : ResultadoOperacionCarrito.NoModificable(resultado.EstadoActual));
         }, cancellationToken);
     }
 }

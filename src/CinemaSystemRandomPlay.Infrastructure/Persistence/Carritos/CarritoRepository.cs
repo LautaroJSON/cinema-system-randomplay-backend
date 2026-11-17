@@ -12,16 +12,18 @@ public class CarritoRepository : ICarritoRepository
         _dbContext = dbContext;
     }
 
-    public async Task<IReadOnlyList<Carrito>> ListarActivosDeFuncion(Guid funcionId, DateTimeOffset ahora, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Carrito>> ListarQueRetienenAsientos(Guid funcionId, DateTimeOffset ahora, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Carritos
-            .Where(c => c.FuncionId == funcionId && c.Estado == EstadoCarrito.Activo && c.VenceEn > ahora)
+            .Where(c => c.FuncionId == funcionId &&
+                        (((c.Estado == EstadoCarrito.Activo || c.Estado == EstadoCarrito.Pagando) && c.VenceEn > ahora) ||
+                         c.Estado == EstadoCarrito.Pagado))
             .ToListAsync(cancellationToken);
     }
 
     public async Task<Carrito?> ObtenerPorId(Guid carritoId, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Carritos.FirstOrDefaultAsync(c => c.Id == carritoId, cancellationToken);
+        return await _dbContext.Carritos.Include(c => c.Entradas).FirstOrDefaultAsync(c => c.Id == carritoId, cancellationToken);
     }
 
     public async Task<Guid?> ObtenerFuncionId(Guid carritoId, CancellationToken cancellationToken = default)

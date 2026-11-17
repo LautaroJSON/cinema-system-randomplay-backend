@@ -31,7 +31,7 @@ public class CrearCarritoCommandHandlerTests
     {
         _reloj.Ahora.Returns(Ahora);
         _desafio.Verificar(Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(true);
-        _carritoRepository.ListarActivosDeFuncion(Arg.Any<Guid>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>()).Returns(_activos);
+        _carritoRepository.ListarQueRetienenAsientos(Arg.Any<Guid>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>()).Returns(_activos);
         _carritoRepository.Agregar(Arg.Do<Carrito>(c => _agregado = c), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
         _emisorDeToken.Emitir(Arg.Any<Guid>(), Arg.Any<DateTimeOffset>())
             .Returns(llamada => new TokenDeCarrito($"token-{llamada.Arg<Guid>()}", Ahora.AddHours(1)));

@@ -21,6 +21,14 @@ using CinemaSystemRandomPlay.Infrastructure.Persistence.Carritos;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Catalogo;
 using CinemaSystemRandomPlay.Infrastructure.Persistence.Funciones;
 using CinemaSystemRandomPlay.Infrastructure.Invitados;
+using CinemaSystemRandomPlay.Infrastructure.Email;
+using CinemaSystemRandomPlay.Infrastructure.Outbox;
+using CinemaSystemRandomPlay.Application.Pagos.Manejadores;
+using CinemaSystemRandomPlay.Infrastructure.Pagos;
+using CinemaSystemRandomPlay.Infrastructure.Persistence.Pagos;
+using CinemaSystemRandomPlay.Application.Pagos.Commands;
+using CinemaSystemRandomPlay.Application.Pagos.Ports;
+using CinemaSystemRandomPlay.Domain.Pagos;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Reflection;
@@ -66,6 +74,19 @@ if (Assembly.GetEntryAssembly()?.GetName().Name != "GetDocument.Insider")
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OpcionesInvitados>>().Value);
 builder.Services.AddOptions<OpcionesCarritos>().Bind(builder.Configuration.GetSection(OpcionesCarritos.Seccion));
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OpcionesCarritos>>().Value);
+
+// Mercado Pago (spec 008). Los secretos (AccessToken, ClaveSecretaAvisos) solo por user-secrets o variables de entorno. Se valida
+// al arrancar, salvo en el generador de docs/openapi.json (ver OpcionesInvitados arriba).
+var opcionesMercadoPago = builder.Services.AddOptions<OpcionesMercadoPago>()
+    .Bind(builder.Configuration.GetSection(OpcionesMercadoPago.Seccion))
+    .Validate(o => o.Validar().Count == 0,
+        $"La sección {OpcionesMercadoPago.Seccion} es inválida: en modo Real hacen falta AccessToken, ClaveSecretaAvisos y UrlAvisos " +
+        "(ver specs/008-pago-mercado-pago/quickstart.md).");
+if (Assembly.GetEntryAssembly()?.GetName().Name != "GetDocument.Insider")
+    opcionesMercadoPago.ValidateOnStart();
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OpcionesMercadoPago>>().Value);
+builder.Services.AddOptions<OpcionesOutbox>().Bind(builder.Configuration.GetSection(OpcionesOutbox.Seccion));
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OpcionesOutbox>>().Value);
 
 // Autenticación: dos esquemas separados. "Bearer" (por defecto) es el proveedor OIDC del personal; Authority/audiencias
 // vienen de Authentication:Schemes:Bearer. "Invitado" valida solo tokens de carrito emitidos por esta API.
@@ -198,13 +219,44 @@ builder.Services.AddScoped<ObtenerCarritoQueryHandler>();
 builder.Services.AddScoped<ReemplazarSeleccionCommandHandler>();
 builder.Services.AddScoped<AbandonarCarritoCommandHandler>();
 builder.Services.AddScoped<IndicarEmailEntregaCommandHandler>();
+builder.Services.AddScoped<IniciarPagoCommandHandler>();
 
-// Email al comprador: sin uso hasta la feature de pago, que enviará la entrada. El registrador escribe en el log: solo en
-// Development y Testing. En el resto, falla de forma explícita.
-if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"))
+// Pagos (spec 008). El simulador se registra siempre (sin estado externo); la pasarela es el simulador o Mercado Pago según
+// MercadoPago:Modo, leído de las opciones ya enlazadas al resolverla.
+builder.Services.AddSingleton<ProcesadorDePagosSimulado>();
+builder.Services.AddScoped<IProcesadorDePagos>(sp => sp.GetRequiredService<OpcionesMercadoPago>().Modo == ModoMercadoPago.Real
+    ? ActivatorUtilities.CreateInstance<ProcesadorDePagosMercadoPago>(sp)
+    : sp.GetRequiredService<ProcesadorDePagosSimulado>());
+builder.Services.AddSingleton<ConfirmadorDePagos>();
+builder.Services.AddSingleton<IGeneradorDeCodigos, GeneradorDeCodigosCrockford>();
+builder.Services.AddScoped<IRegistroDePagos, RegistroDePagos>();
+builder.Services.AddScoped<ProcesarPagoCommandHandler>();
+builder.Services.AddSingleton<IVerificadorDeAvisos, VerificadorDeAvisosMercadoPago>();
+builder.Services.AddScoped<RecibirAvisoDePagoCommandHandler>();
+builder.Services.AddSingleton(sp =>
+    new OpcionesVerificacionDePagos(TimeSpan.FromSeconds(sp.GetRequiredService<OpcionesMercadoPago>().SegundosTimeoutConsulta)));
+
+// Outbox (Principio VI): publicador en background con reintentos. Expuesto también como servicio para los tests.
+builder.Services.AddSingleton<ProcesadorDeOutbox>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ProcesadorDeOutbox>());
+
+// Email de entrega de las entradas (spec 008): lo envía el Outbox. Smtp sirve para Mailpit (Development) y para cualquier proveedor
+// por SMTP; el registrador solo escribe en el log y se admite en Development y Testing. En el resto, sin proveedor, falla de forma
+// explícita.
+var opcionesEmail = builder.Configuration.GetSection(OpcionesEmail.Seccion).Get<OpcionesEmail>() ?? new OpcionesEmail();
+builder.Services.AddSingleton(opcionesEmail);
+if (opcionesEmail.Proveedor == ProveedorEmail.Smtp)
+{
+    if (string.IsNullOrWhiteSpace(opcionesEmail.Smtp.Host) && Assembly.GetEntryAssembly()?.GetName().Name != "GetDocument.Insider")
+        throw new InvalidOperationException($"Con {OpcionesEmail.Seccion}:Proveedor=Smtp falta {OpcionesEmail.Seccion}:Smtp:Host.");
+    builder.Services.AddScoped<IEnviadorDeEmail, EnviadorDeEmailSmtp>();
+}
+else if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddScoped<IEnviadorDeEmail, EnviadorDeEmailRegistrador>();
 else
     builder.Services.AddScoped<IEnviadorDeEmail, EnviadorDeEmailNoConfigurado>();
+builder.Services.AddScoped<IManejadorDeMensaje, EnviarEmailDeEntrega>();
+builder.Services.AddScoped<IManejadorDeMensaje, EjecutarDevolucion>();
 
 var app = builder.Build();
 

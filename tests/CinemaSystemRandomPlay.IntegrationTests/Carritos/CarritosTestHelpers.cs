@@ -42,6 +42,41 @@ internal static class CarritosTestHelpers
 
     public static HttpClient ClienteDe(this CarritosApiFactory factory, CarritoCreado carrito) => factory.CrearCliente(carrito.Token);
 
+    /// <summary>Crea un carrito e indica <c>ana@example.com</c> como email de entrega.</summary>
+    public static async Task<CarritoCreado> CrearCarritoConEmail(this CarritosApiFactory factory, Guid funcionId, params string[] asientos)
+    {
+        var carrito = await factory.CrearCarritoOk(funcionId, asientos);
+        var response = await factory.ClienteDe(carrito).IndicarEmailEntrega(carrito.Id, "ana@example.com");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return carrito;
+    }
+
+    public static Task<HttpResponseMessage> IniciarPago(this HttpClient cliente, Guid carritoId) =>
+        cliente.PostAsync($"/api/carritos/{carritoId}/pago", null);
+
+    /// <summary>Crea un carrito con email e inicia su pago; devuelve el carrito y la respuesta del inicio.</summary>
+    public static async Task<(CarritoCreado Carrito, JsonElement Respuesta)> CrearCarritoEnPago(this CarritosApiFactory factory, Guid funcionId,
+        params string[] asientos)
+    {
+        var carrito = await factory.CrearCarritoConEmail(funcionId, asientos);
+        var response = await factory.ClienteDe(carrito).IniciarPago(carrito.Id);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (carrito, await response.LeerJson());
+    }
+
+    /// <summary>Simula un pago con el endpoint de desarrollo, que lo procesa igual que un aviso.</summary>
+    public static Task<HttpResponseMessage> SimularPago(this HttpClient cliente, Guid carritoId, string estado = "Aprobado",
+        decimal? monto = null, DateTimeOffset? aprobadoEn = null) =>
+        cliente.PostAsJsonAsync("/api/dev/pagos-simulados", new { carritoId, estado, monto, aprobadoEn });
+
+    /// <summary>Estado del carrito según su portador.</summary>
+    public static async Task<JsonElement> CarritoSegunPortador(this CarritosApiFactory factory, CarritoCreado carrito)
+    {
+        var response = await factory.ClienteDe(carrito).ObtenerCarrito(carrito.Id);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return await response.LeerJson();
+    }
+
     public static async Task<JsonElement> LeerJson(this HttpResponseMessage response)
     {
         var texto = await response.Content.ReadAsStringAsync();

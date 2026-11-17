@@ -15,6 +15,13 @@ services:
       timeout: 5s
       retries: 5
 
+  mailpit:
+    image: axllent/mailpit:v1.33.0
+    container_name: cinema-mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
   api:
     build:
       context: .
@@ -23,11 +30,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       # Clave de firma SOLO para desarrollo local; en cualquier otro entorno se define por secreto o variable de entorno.
       Invitados__ClaveFirma: clave-de-desarrollo-local-no-usar-en-produccion-0123456789
       ConnectionStrings__CinemaDb: Host=postgres;Port=5432;Database=cinema_dev;Username=postgres;Password=postgres
+      # Pagos simulados (sin túnel ni credenciales) y emails atrapados por Mailpit (http://localhost:8025).
+      MercadoPago__Modo: Simulado
+      Email__Proveedor: Smtp
+      Email__Smtp__Host: mailpit
+      Email__Smtp__Puerto: "1025"
+      Email__Smtp__UsarTls: "false"
     ports:
       - "8080:8080"
 

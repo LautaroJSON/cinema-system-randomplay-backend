@@ -25,7 +25,7 @@ public abstract class OperacionesSobreCarritoTestBase
         Reloj.Ahora.Returns(Ahora);
         (Funcion, _) = CrearFuncion();
         FuncionRepository.ObtenerConSalaBloqueando(Funcion.Id, Arg.Any<CancellationToken>()).Returns(Funcion);
-        CarritoRepository.ListarActivosDeFuncion(Funcion.Id, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>()).Returns(Activos);
+        CarritoRepository.ListarQueRetienenAsientos(Funcion.Id, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>()).Returns(Activos);
     }
 
     /// <summary>Registra el carrito en los dobles: repositorio, función, activos y lectura posterior.</summary>

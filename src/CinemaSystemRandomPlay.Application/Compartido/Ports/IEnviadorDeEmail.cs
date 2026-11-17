@@ -2,11 +2,13 @@ using CinemaSystemRandomPlay.Domain.Compradores;
 
 namespace CinemaSystemRandomPlay.Application.Compartido.Ports;
 
-public record MensajeDeEmail(EmailComprador Destinatario, string Asunto, string Cuerpo);
+/// <param name="Cuerpo">Texto plano.</param>
+/// <param name="CuerpoHtml">Versión HTML opcional del mismo contenido.</param>
+public record MensajeDeEmail(EmailComprador Destinatario, string Asunto, string Cuerpo, string? CuerpoHtml = null);
 
 /// <summary>
-/// Envío de emails al comprador. En la feature 007 nadie lo invoca: lo usará la feature de pago para enviar la entrada.
-/// Se envía siempre después de confirmar la transacción, nunca dentro de ella.
+/// Envío de emails al comprador: las entradas de un carrito pagado (feature 008). Se envía siempre desde el Outbox, después de
+/// confirmar la transacción, nunca dentro de ella.
 /// </summary>
 public interface IEnviadorDeEmail
 {

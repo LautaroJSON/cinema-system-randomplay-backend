@@ -38,6 +38,9 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)");
 
+                    b.Property<DateTimeOffset?>("EntregaEnviadaEn")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Estado")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -45,6 +48,27 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
 
                     b.Property<Guid>("FuncionId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("PagadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("PagoAprobadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PagoId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTimeOffset?>("PagoIniciadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PreferenciaPagoId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("UrlPago")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTimeOffset>("VenceEn")
                         .HasColumnType("timestamp with time zone");
@@ -69,6 +93,77 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
                     b.HasIndex("FuncionId", "Estado", "VenceEn");
 
                     b.ToTable("Carritos", (string)null);
+                });
+
+            modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Carritos.Entrada", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CarritoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(11)
+                        .HasColumnType("character varying(11)");
+
+                    b.Property<DateTimeOffset>("EmitidaEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<char>("Fila")
+                        .HasColumnType("character(1)");
+
+                    b.Property<Guid>("FuncionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("HoraInicio")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Numero")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PeliculaTitulo")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SalaNombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SucursalNombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "PrecioUnitario", "CinemaSystemRandomPlay.Domain.Carritos.Entrada.PrecioUnitario#Dinero", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Moneda")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("PrecioUnitario_Moneda");
+
+                            b1.Property<decimal>("Monto")
+                                .HasColumnType("numeric(12,2)")
+                                .HasColumnName("PrecioUnitario_Monto");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CarritoId");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique();
+
+                    b.HasIndex("FuncionId", "Fila", "Numero")
+                        .IsUnique();
+
+                    b.ToTable("Entradas", (string)null);
                 });
 
             modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Catalogo.Pelicula", b =>
@@ -226,10 +321,118 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Pagos.Devolucion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CarritoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("PagoId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTimeOffset?>("ResueltaEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("SolicitadaEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UltimoError")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "Monto", "CinemaSystemRandomPlay.Domain.Pagos.Devolucion.Monto#Dinero", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Moneda")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("Moneda");
+
+                            b1.Property<decimal>("Monto")
+                                .HasColumnType("numeric(12,2)")
+                                .HasColumnName("Monto");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CarritoId");
+
+                    b.HasIndex("PagoId")
+                        .IsUnique();
+
+                    b.ToTable("Devoluciones", (string)null);
+                });
+
+            modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Pagos.PagoProcesado", b =>
+                {
+                    b.Property<string>("PagoId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTimeOffset>("AprobadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CarritoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ProcesadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Resultado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "Monto", "CinemaSystemRandomPlay.Domain.Pagos.PagoProcesado.Monto#Dinero", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Moneda")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("Moneda");
+
+                            b1.Property<decimal>("Monto")
+                                .HasColumnType("numeric(12,2)")
+                                .HasColumnName("Monto");
+                        });
+
+                    b.HasKey("PagoId");
+
+                    b.HasIndex("CarritoId");
+
+                    b.ToTable("PagosProcesados", (string)null);
+                });
+
             modelBuilder.Entity("CinemaSystemRandomPlay.Infrastructure.Persistence.Outbox.OutboxMensaje", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("FallidoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Intentos")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
 
                     b.Property<DateTimeOffset>("OcurridoEn")
                         .HasColumnType("timestamp with time zone");
@@ -241,14 +444,23 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("ProcesadoEn")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTimeOffset?>("ProximoIntentoEn")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Tipo")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("UltimoError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ProcesadoEn", "OcurridoEn");
+
+                    b.HasIndex("ProcesadoEn", "FallidoEn", "ProximoIntentoEn");
 
                     b.ToTable("OutboxMensajes", (string)null);
                 });
@@ -281,6 +493,15 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
                         });
 
                     b.Navigation("Asientos");
+                });
+
+            modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Carritos.Entrada", b =>
+                {
+                    b.HasOne("CinemaSystemRandomPlay.Domain.Carritos.Carrito", null)
+                        .WithMany("Entradas")
+                        .HasForeignKey("CarritoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Funciones.Funcion", b =>
@@ -506,6 +727,11 @@ namespace CinemaSystemRandomPlay.Infrastructure.Migrations
                     b.Navigation("Filas");
 
                     b.Navigation("Sucursal");
+                });
+
+            modelBuilder.Entity("CinemaSystemRandomPlay.Domain.Carritos.Carrito", b =>
+                {
+                    b.Navigation("Entradas");
                 });
 #pragma warning restore 612, 618
         }

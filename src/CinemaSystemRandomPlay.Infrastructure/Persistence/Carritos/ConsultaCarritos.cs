@@ -25,7 +25,7 @@ public class ConsultaCarritos : IConsultaCarritos
             {
                 c.Id, c.Estado, c.CreadoEn, c.VenceEn, c.AbandonadoEn, c.EmailEntrega, c.FuncionId, f.FechaHoraInicio,
                 PeliculaId = p.Id, p.Titulo, SucursalId = su.Id, SucursalNombre = su.Nombre, SalaId = s.Id, SalaNombre = s.Nombre,
-                c.PrecioUnitario
+                c.PrecioUnitario, c.UrlPago, c.PagoIniciadoEn, c.PagadoEn, c.EntregaEnviadaEn
             }).FirstOrDefaultAsync(cancellationToken);
 
         if (fila is null)
@@ -37,8 +37,16 @@ public class ConsultaCarritos : IConsultaCarritos
             .SelectMany(c => c.Asientos)
             .ToListAsync(cancellationToken);
 
+        var entradas = await _dbContext.Entradas
+            .AsNoTracking()
+            .Where(e => e.CarritoId == carritoId)
+            .ToListAsync(cancellationToken);
+
         return new CarritoLecturaDto(fila.Id, fila.Estado, fila.CreadoEn, fila.VenceEn, fila.AbandonadoEn, fila.EmailEntrega?.Valor,
             asientos, fila.FuncionId, fila.FechaHoraInicio, fila.PeliculaId, fila.Titulo, fila.SucursalId, fila.SucursalNombre,
-            fila.SalaId, fila.SalaNombre, fila.PrecioUnitario);
+            fila.SalaId, fila.SalaNombre, fila.PrecioUnitario, fila.UrlPago, fila.PagoIniciadoEn, fila.PagadoEn,
+            fila.EntregaEnviadaEn,
+            entradas.Select(e => new EntradaLecturaDto(e.Codigo, e.Asiento, e.PeliculaTitulo, e.SucursalNombre, e.SalaNombre,
+                e.HoraInicio, e.PrecioUnitario)).ToList());
     }
 }
