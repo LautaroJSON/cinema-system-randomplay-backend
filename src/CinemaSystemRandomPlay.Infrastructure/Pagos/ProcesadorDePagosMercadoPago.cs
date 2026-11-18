@@ -8,8 +8,9 @@ using MercadoPago.Error;
 namespace CinemaSystemRandomPlay.Infrastructure.Pagos;
 
 /// <summary>
-/// Mercado Pago Checkout Pro con el SDK oficial, usando credenciales de prueba (spec 008). Devuelve la URL de pago del entorno de
-/// pruebas (<c>sandbox_init_point</c>). El access token viaja en cada pedido (<see cref="RequestOptions"/>), sin configuración
+/// Mercado Pago Checkout Pro con el SDK oficial (spec 008). Devuelve <c>init_point</c>: Mercado Pago retiró el sandbox y
+/// <c>sandbox_init_point</c> termina en una página de error. Lo que hace que un pago sea de prueba es el access token del
+/// vendedor de prueba, no la URL. El access token viaja en cada pedido (<see cref="RequestOptions"/>), sin configuración
 /// global estática, y nunca se registra en el log.
 /// </summary>
 public class ProcesadorDePagosMercadoPago : IProcesadorDePagos
@@ -29,7 +30,7 @@ public class ProcesadorDePagosMercadoPago : IProcesadorDePagos
         var preferencia = await Llamar(() => _preferencias.CreateAsync(MapeoMercadoPago.APreferencia(solicitud, _opciones),
             Opciones(), cancellationToken), cancellationToken);
 
-        var url = preferencia.SandboxInitPoint ?? preferencia.InitPoint;
+        var url = preferencia.InitPoint;
         if (string.IsNullOrWhiteSpace(preferencia.Id) || string.IsNullOrWhiteSpace(url))
             throw new ProcesadorDePagosNoDisponibleException("Mercado Pago no devolvió la preferencia de pago.");
 

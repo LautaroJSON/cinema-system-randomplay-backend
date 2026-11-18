@@ -33,7 +33,7 @@ los textos de Mercado Pago (`approved`, `rejected`, `pending`, `in_process`, `re
 
 Implementaciones en `Infrastructure/Pagos/`:
 
-- `ProcesadorDePagosMercadoPago`: usa el SDK. Devuelve `sandbox_init_point` como `UrlPago` (credenciales de prueba).
+- `ProcesadorDePagosMercadoPago`: usa el SDK. Devuelve `init_point` como `UrlPago`; el pago es de prueba porque el token es del vendedor de prueba (Mercado Pago retiró el sandbox y `sandbox_init_point` falla).
 - `ProcesadorDePagosSimulado`: guarda preferencias y pagos en memoria (`Singleton`, `ConcurrentDictionary`). Expone
   `RegistrarPago(...)` para que los tests y el endpoint de desarrollo creen pagos aprobados, rechazados, pendientes, con
   otro monto o con otra hora de aprobación. Registra las devoluciones pedidas para que los tests las verifiquen.
@@ -261,7 +261,7 @@ incómodo para el uso diario).
 ## Decisión 13 — Credenciales y secretos
 
 **Decision**: `MercadoPago:AccessToken` y `MercadoPago:ClaveSecretaAvisos` solo por user-secrets o variables de entorno,
-nunca en `appsettings*.json` ni en `docker-compose.yml` (FR-028). El adaptador real usa `sandbox_init_point`. El
+nunca en `appsettings*.json` ni en `docker-compose.yml` (FR-028). El adaptador real usa `init_point` (el sandbox fue retirado). El
 README explica cómo obtener credenciales de prueba de un usuario vendedor de prueba y tarjetas de prueba. Los logs
 nunca incluyen el token, la clave ni el cuerpo completo de las respuestas de Mercado Pago.
 
