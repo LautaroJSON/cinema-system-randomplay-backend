@@ -23,32 +23,34 @@ public static partial class DevDataSeeder
     public static readonly Guid PeliculaDemoRelatosSalvajesId = new("88888888-0000-0000-0000-000000000003");
     public static readonly Guid PeliculaDemoSecretoDeSusOjosId = new("88888888-0000-0000-0000-000000000004");
 
+    private const string SufijoDemoAnterior = " (demo)";
+
     private static Pelicula[] PeliculasDemo() =>
     [
         new(
             PeliculaDemoId,
-            "Interstellar (demo)",
+            "Interstellar",
             169,
             Clasificacion.ATP,
             "En un futuro en el que la Tierra se vuelve inhabitable, un grupo de astronautas viaja a través de un agujero de gusano en busca de un nuevo hogar para la humanidad.",
             imagenUrl: "https://upload.wikimedia.org/wikipedia/en/b/bc/Interstellar_film_poster.jpg"),
         new(
             PeliculaDemoDuneId,
-            "Dune (demo)",
+            "Dune",
             155,
             Clasificacion.Mas13,
             "Paul Atreides, heredero de una familia noble, llega con los suyos a Arrakis, el planeta desértico del que depende la sustancia más valiosa del universo.",
             imagenUrl: "https://upload.wikimedia.org/wikipedia/en/8/8e/Dune_%282021_film%29.jpg"),
         new(
             PeliculaDemoRelatosSalvajesId,
-            "Relatos salvajes (demo)",
+            "Relatos salvajes",
             122,
             Clasificacion.Mas16,
             "Seis historias independientes de personas comunes que, empujadas al límite, pierden el control y se dejan llevar por el placer de la venganza.",
             imagenUrl: "https://upload.wikimedia.org/wikipedia/en/5/5e/Relatos_salvajes.jpg"),
         new(
             PeliculaDemoSecretoDeSusOjosId,
-            "El secreto de sus ojos (demo)",
+            "El secreto de sus ojos",
             129,
             Clasificacion.Mas16,
             "Un empleado judicial retirado decide escribir una novela sobre un crimen que investigó veinticinco años atrás y que todavía no puede olvidar.",
@@ -66,6 +68,12 @@ public static partial class DevDataSeeder
 
         dbContext.Peliculas.AddRange(peliculasDemo.Where(p => !idsExistentes.Contains(p.Id)));
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Las bases sembradas antes guardaron los títulos con el sufijo " (demo)": se lo quita una sola vez.
+        await dbContext.Peliculas
+            .Where(p => idsDemo.Contains(p.Id) && p.Titulo.EndsWith(SufijoDemoAnterior))
+            .ExecuteUpdateAsync(s => s.SetProperty(
+                p => p.Titulo, p => p.Titulo.Substring(0, p.Titulo.Length - SufijoDemoAnterior.Length)), cancellationToken);
 
         var ahora = DateTimeOffset.Now;
         var finDeHoy = new DateTimeOffset(ahora.Date, ahora.Offset).AddDays(1);
