@@ -41,7 +41,7 @@ de la 007 siguen igual salvo lo indicado acá.
   "total": { "monto": "9000.00", "moneda": "ARS" },
   "emailEntrega": "ana@example.com",
   "pago": {
-    "urlPago": "https://sandbox.mercadopago.com.ar/checkout/v1/redirect?pref_id=…",
+    "urlPago": "https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=…",
     "iniciadoEn": "2026-11-16T20:03:00Z",
     "pagadoEn": null
   },
@@ -72,7 +72,7 @@ Sin body. Inicia el pago del carrito en Mercado Pago.
 **200 OK**:
 
 ```json
-{ "urlPago": "https://sandbox.mercadopago.com.ar/checkout/v1/redirect?pref_id=…", "carrito": { "…": "estado Pagando" } }
+{ "urlPago": "https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=…", "carrito": { "…": "estado Pagando" } }
 ```
 
 - Primera vez, carrito `Activo` con email: el carrito pasa a `Pagando` y `venceEn` pasa a `min(venceEn + 1 min, inicio de
