@@ -30,6 +30,7 @@ using CinemaSystemRandomPlay.Application.Pagos.Commands;
 using CinemaSystemRandomPlay.Application.Pagos.Ports;
 using CinemaSystemRandomPlay.Domain.Pagos;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using System.Reflection;
 using System.Text;
@@ -184,6 +185,32 @@ builder.Services.AgregarDocumentacionOpenApi();
 builder.Services.AddDbContext<CinemaDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("CinemaDb")));
 
+// /health para el hosting y el ping que lo mantiene despierto (ver Compartido/BaseDeDatosDisponible.cs).
+builder.Services.AddHealthChecks().AddCheck<BaseDeDatosDisponible>("base-de-datos");
+
+// CORS: orígenes del front permitidos, por configuración (Cors:OrigenesPermitidos). Sin orígenes, no se permite ninguno.
+var origenesPermitidos = builder.Configuration.GetSection("Cors:OrigenesPermitidos").Get<string[]>() ?? [];
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
+    .WithOrigins(origenesPermitidos)
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .WithExposedHeaders("Location", "Retry-After")));
+
+// Detrás del proxy del hosting, la IP del cliente y el esquema llegan en X-Forwarded-For/Proto. Con ForwardLimit = 1 (el valor
+// por defecto) solo se toma la última IP, la que agrega el proxy, así que un cliente no puede falsear la suya para eludir el
+// límite por origen. En Development y Testing no hay proxy y no se aplica.
+var detrasDeProxy = !builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing");
+if (detrasDeProxy)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        // El proxy del hosting no tiene una IP fija conocida.
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
+}
+
 // Compartido
 builder.Services.AddScoped<IReloj, RelojSistema>();
 builder.Services.AddScoped<IUnidadDeTrabajo, UnidadDeTrabajoEf>();
@@ -268,17 +295,32 @@ if (app.Environment.IsDevelopment())
     // Referencia navegable de la API en /scalar, con el documento de /openapi/v1.json.
     app.MapScalarApiReference().AllowAnonymous();
 
-    using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
-
     // Decisión explícita de descartar las reservas de bases de desarrollo al pasar a compradores por email (feature 006) y
     // después a carritos anónimos (feature 007, FR-024).
     Environment.SetEnvironmentVariable("CINEMA_PERMITIR_DESCARTE_RESERVAS", "true");
-    await dbContext.Database.MigrateAsync();
-    await DevDataSeeder.SeedAsync(dbContext);
 }
 
+// Migraciones y datos de demo: siempre en Development; fuera de él, solo si se piden de forma explícita
+// (BaseDeDatos:AplicarMigraciones y BaseDeDatos:SembrarDatosDemo), por ejemplo en el deploy de demostración.
+var aplicarMigraciones = app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("BaseDeDatos:AplicarMigraciones");
+var sembrarDatosDemo = app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("BaseDeDatos:SembrarDatosDemo");
+if (aplicarMigraciones || sembrarDatosDemo)
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<CinemaDbContext>();
+
+    if (aplicarMigraciones)
+        await dbContext.Database.MigrateAsync();
+    if (sembrarDatosDemo)
+        await DevDataSeeder.SeedAsync(dbContext);
+}
+
+if (detrasDeProxy)
+    app.UseForwardedHeaders();
+
 app.UseHttpsRedirection();
+
+app.UseCors();
 
 app.UseRateLimiter();
 
@@ -286,6 +328,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health").AllowAnonymous().DisableRateLimiting();
 
 app.Run();
 

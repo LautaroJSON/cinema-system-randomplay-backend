@@ -113,6 +113,23 @@ En `Development`, la Api corre las migraciones pendientes y siembra datos de des
 automáticamente al arrancar (ver `DevDataSeeder` en `Infrastructure/Persistence`), tanto en
 Docker como en local — no hace falta insertar datos a mano para probar el flujo completo.
 
+### Deploy (Render + Supabase)
+
+El servicio de Render se construye con `src/CinemaSystemRandomPlay.Api/Dockerfile` (contexto: la raíz del repo) y despliega
+cada push a `master`. Toda la configuración va en variables de entorno del servicio, nunca en el repo:
+
+- `ASPNETCORE_ENVIRONMENT=Production`, `ASPNETCORE_HTTP_PORTS=8080` y `TZ=America/Argentina/Buenos_Aires` (el "hoy" de la
+  cartelera usa la zona horaria del servidor).
+- `ConnectionStrings__CinemaDb`: Session pooler de Supabase en formato Npgsql (`Host=...;Username=postgres.<id>;...;SSL Mode=Require`).
+  La conexión directa de Supabase es solo IPv6 y el Transaction pooler rompe las migraciones.
+- `Invitados__ClaveFirma` y las de `MercadoPago__` (ver specs/008-pago-mercado-pago/quickstart.md).
+- `BaseDeDatos__AplicarMigraciones=true` y `BaseDeDatos__SembrarDatosDemo=true`: fuera de Development, las migraciones y los
+  datos de demo solo se aplican si se piden.
+- `Cors__OrigenesPermitidos__0`, `__1`, …: orígenes del front.
+
+`GET /health` responde 200 si la API llega a la base. Fuera de Development y Testing la API confía en `X-Forwarded-For/Proto`
+del proxy del hosting (solo la última IP), para que el límite por origen vea la IP real del cliente.
+
 ## Datos de desarrollo
 
 `Sucursal`, `Sala` y la disposición de asientos de cada Sala (`SalaFilas`) se siembran como datos
