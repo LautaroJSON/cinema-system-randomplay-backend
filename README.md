@@ -4,6 +4,14 @@ Backend puro en **.NET 10 / C# 12 / ASP.NET Core** para un sistema de reserva de
 cine. Expone una API REST (JSON) para un cliente externo — este repositorio no incluye frontend
 ni renderizado de vistas.
 
+**Deploy en vivo**
+
+- API: <https://cinema-system-randomplay-backend.onrender.com> (health check en
+  [`/health`](https://cinema-system-randomplay-backend.onrender.com/health)). Corre en el plan gratuito de Render,
+  así que la primera petición tras un rato sin uso puede tardar unos segundos mientras el servicio despierta.
+- Frontend que la consume: <https://cinema-system-randomplay-frontend.vercel.app>
+  ([repositorio](https://github.com/LautaroJSON/cinema-system-randomplay-frontend)).
+
 El diseño y la evolución del proyecto siguen el flujo de [Spec Kit](https://github.com/github/spec-kit):
 cada feature nace como una especificación en `specs/`, pasa por un plan técnico y una lista de
 tareas antes de implementarse. La [constitución del proyecto](.specify/memory/constitution.md)
@@ -114,6 +122,8 @@ automáticamente al arrancar (ver `DevDataSeeder` en `Infrastructure/Persistence
 Docker como en local — no hace falta insertar datos a mano para probar el flujo completo.
 
 ### Deploy (Render + Supabase)
+
+URL pública: <https://cinema-system-randomplay-backend.onrender.com>.
 
 El servicio de Render se construye con `src/CinemaSystemRandomPlay.Api/Dockerfile` (contexto: la raíz del repo) y despliega
 cada push a `master`. Toda la configuración va en variables de entorno del servicio, nunca en el repo:
