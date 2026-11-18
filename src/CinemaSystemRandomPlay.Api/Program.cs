@@ -194,7 +194,8 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins(origenesPermitidos)
     .AllowAnyHeader()
     .AllowAnyMethod()
-    .WithExposedHeaders("Location", "Retry-After")));
+    // Date: el front mide con él el desfase de su reloj para el contador de retención.
+    .WithExposedHeaders("Location", "Retry-After", "Date")));
 
 // Detrás del proxy del hosting, la IP del cliente y el esquema llegan en X-Forwarded-For/Proto. Con ForwardLimit = 1 (el valor
 // por defecto) solo se toma la última IP, la que agrega el proxy, así que un cliente no puede falsear la suya para eludir el
